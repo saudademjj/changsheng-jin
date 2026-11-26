@@ -8,6 +8,8 @@ import {
   isSanctuaryClosed,
 } from '../engine/sanctuary';
 import { ACT_META } from '../engine/worldview';
+import { AppIcon } from './Icon';
+import { DesktopMenu, DesktopMenuGroup } from './DesktopMenu';
 
 export type DrawerTab = 'status' | 'world' | 'companions' | 'sanctuary' | 'saves' | 'meta' | null;
 
@@ -19,6 +21,7 @@ interface TopStatusBarProps {
   onOpenDrawer: (tab: DrawerTab) => void;
   onToggleTianji: () => void;
   onToggleTheme: () => void;
+  onToggleInstantText?: () => void;
   onGoTitle: () => void;
 }
 
@@ -30,6 +33,7 @@ export const TopStatusBar: React.FC<TopStatusBarProps> = ({
   onOpenDrawer,
   onToggleTianji,
   onToggleTheme,
+  onToggleInstantText,
   onGoTitle,
 }) => {
   const barRef = useRef<HTMLElement | null>(null);
@@ -78,6 +82,104 @@ export const TopStatusBar: React.FC<TopStatusBarProps> = ({
         canCommitBond(state, cid, 'sworn').ok
     );
 
+  const toggleDrawer = (tab: Exclude<DrawerTab, null>) => {
+    onOpenDrawer(activeDrawer === tab ? null : tab);
+  };
+
+  const desktopMenuGroups: DesktopMenuGroup[] = [
+    {
+      id: 'archives',
+      label: '九州卷籍',
+      icon: 'bookOpen',
+      dot: hasSanctuaryHighlight,
+      items: [
+        {
+          id: 'status',
+          label: '行囊与命格',
+          icon: 'user',
+          active: activeDrawer === 'status',
+          onSelect: () => toggleDrawer('status'),
+        },
+        {
+          id: 'world',
+          label: '九州世局',
+          icon: 'globe',
+          active: activeDrawer === 'world',
+          onSelect: () => toggleDrawer('world'),
+        },
+        {
+          id: 'companions',
+          label: '故人志',
+          icon: 'users',
+          active: activeDrawer === 'companions',
+          onSelect: () => toggleDrawer('companions'),
+        },
+        {
+          id: 'sanctuary',
+          label: '仙缘雅阁',
+          icon: 'heart',
+          active: activeDrawer === 'sanctuary',
+          dot: hasSanctuaryHighlight,
+          onSelect: () => toggleDrawer('sanctuary'),
+        },
+        {
+          id: 'saves',
+          label: '命盘刻痕',
+          icon: 'archive',
+          active: activeDrawer === 'saves',
+          onSelect: () => toggleDrawer('saves'),
+        },
+        {
+          id: 'meta',
+          label: '万象志',
+          icon: 'compass',
+          active: activeDrawer === 'meta',
+          onSelect: () => toggleDrawer('meta'),
+        },
+      ],
+    },
+    {
+      id: 'settings',
+      label: '阅览设置',
+      icon: 'feather',
+      items: [
+        {
+          id: 'tianji',
+          label: '天机洞见',
+          icon: prefs.tianjiInsight ? 'eye' : 'eyeOff',
+          active: prefs.tianjiInsight,
+          meta: prefs.tianjiInsight ? '开' : '关',
+          onSelect: onToggleTianji,
+        },
+        ...(onToggleInstantText
+          ? [
+              {
+                id: 'instant',
+                label: '正文显现',
+                icon: 'feather' as const,
+                active: prefs.instantText,
+                meta: prefs.instantText ? '瞬显' : '逐段',
+                onSelect: onToggleInstantText,
+              },
+            ]
+          : []),
+        {
+          id: 'theme',
+          label: prefs.theme === 'parchment' ? '切换玄夜' : '切换日间',
+          icon: prefs.theme === 'parchment' ? 'moon' : 'sun',
+          active: prefs.theme === 'ink',
+          onSelect: onToggleTheme,
+        },
+        {
+          id: 'title',
+          label: '返回封面',
+          icon: 'home',
+          onSelect: onGoTitle,
+        },
+      ],
+    },
+  ];
+
   return (
     <>
       <header
@@ -85,33 +187,18 @@ export const TopStatusBar: React.FC<TopStatusBarProps> = ({
         className={`top-bar ${isStaticBar ? 'top-bar-static' : ''}`}
       >
         <div className="top-bar-status">
-          <span
-            className="status-act-pill"
-            title={`${ACT_META[state.act].shortLabel} · ${ACT_META[state.act].title}（${ACT_META[state.act].region}）`}
-          >
-            {ACT_META[state.act].shortLabel}
-          </span>
+          <span className="status-act-pill">{ACT_META[state.act].shortLabel}</span>
           <span className="status-pill-strong">
             {formatCalendarDate(state.year, state.seasonIndex)}
           </span>
-          <span
-            className={lifespanLow ? 'status-lifespan-warn' : undefined}
-            title={
-              lifespanLow
-                ? '寿元将近大限，须尽早破境或备【九转延寿露】'
-                : undefined
-            }
-          >
+          <span className={lifespanLow ? 'status-lifespan-warn' : undefined}>
             {lifespanLow ? (
               <>
                 {age}/{state.lifespanYears}岁·临限
               </>
             ) : (
               <>
-                {age}岁{' '}
-                <span style={{ color: 'var(--text-muted)' }}>
-                  寿{state.lifespanYears}
-                </span>
+                {age}岁 <span className="status-soft">寿{state.lifespanYears}</span>
               </>
             )}
           </span>
@@ -123,79 +210,67 @@ export const TopStatusBar: React.FC<TopStatusBarProps> = ({
           <button
             type="button"
             aria-expanded={activeDrawer === 'status'}
-            className={`nav-btn nav-btn-drawer ${activeDrawer === 'status' ? 'active' : ''}`}
-            onClick={() => onOpenDrawer(activeDrawer === 'status' ? null : 'status')}
+            className={`nav-btn desktop-only-control ${activeDrawer === 'status' ? 'active' : ''}`}
+            onClick={() => toggleDrawer('status')}
           >
-            命格
+            <AppIcon name="user" />
+            <span>命格</span>
           </button>
           <button
             type="button"
             aria-expanded={activeDrawer === 'world'}
-            className={`nav-btn nav-btn-drawer ${activeDrawer === 'world' ? 'active' : ''}`}
-            onClick={() => onOpenDrawer(activeDrawer === 'world' ? null : 'world')}
-            title="九州世局：六方势力态势、灵脉天象、六卷进程与疆域六境"
+            className={`nav-btn desktop-only-control ${activeDrawer === 'world' ? 'active' : ''}`}
+            onClick={() => toggleDrawer('world')}
           >
-            世局
-          </button>
-          <button
-            type="button"
-            aria-expanded={activeDrawer === 'companions'}
-            className={`nav-btn nav-btn-drawer ${activeDrawer === 'companions' ? 'active' : ''}`}
-            onClick={() =>
-              onOpenDrawer(activeDrawer === 'companions' ? null : 'companions')
-            }
-          >
-            故人
+            <AppIcon name="globe" />
+            <span>世局</span>
           </button>
           <button
             type="button"
             aria-expanded={activeDrawer === 'sanctuary'}
-            className={`nav-btn nav-btn-drawer ${activeDrawer === 'sanctuary' ? 'active' : ''}`}
-            onClick={() =>
-              onOpenDrawer(activeDrawer === 'sanctuary' ? null : 'sanctuary')
-            }
-            title="仙缘雅阁：知交夜话、唯一道侣结契、赠礼雅叙与往来尺素"
+            className={`nav-btn desktop-only-control ${activeDrawer === 'sanctuary' ? 'active' : ''}`}
+            onClick={() => toggleDrawer('sanctuary')}
           >
-            仙缘
+            <AppIcon name="heart" />
+            <span>仙缘</span>
             {hasSanctuaryHighlight && (
               <span className="nav-dot" aria-label="有未启仙缘契机" />
             )}
           </button>
-          <button
-            type="button"
-            aria-expanded={activeDrawer === 'saves'}
-            className={`nav-btn nav-btn-drawer ${activeDrawer === 'saves' ? 'active' : ''}`}
-            onClick={() => onOpenDrawer(activeDrawer === 'saves' ? null : 'saves')}
-          >
-            命盘
-          </button>
-          <button
-            type="button"
-            aria-expanded={activeDrawer === 'meta'}
-            className={`nav-btn nav-btn-drawer ${activeDrawer === 'meta' ? 'active' : ''}`}
-            onClick={() => onOpenDrawer(activeDrawer === 'meta' ? null : 'meta')}
-          >
-            万象志
-          </button>
+
+          <div className="desktop-only-control">
+            <DesktopMenu
+              groups={desktopMenuGroups}
+              triggerLabel="卷册"
+              triggerDot={hasSanctuaryHighlight && activeDrawer !== 'sanctuary'}
+            />
+          </div>
+
           <button
             type="button"
             aria-pressed={prefs.tianjiInsight}
-            className={`nav-btn nav-btn-util ${prefs.tianjiInsight ? 'active' : ''}`}
+            className={`nav-btn mobile-util-only ${prefs.tianjiInsight ? 'active' : ''}`}
             onClick={onToggleTianji}
-            title="开启后可窥抉择背后机缘因果，关闭则尽享无扰问仙"
           >
-            天机:{prefs.tianjiInsight ? '开' : '关'}
+            <AppIcon name={prefs.tianjiInsight ? 'eye' : 'eyeOff'} />
+            <span>天机:{prefs.tianjiInsight ? '开' : '关'}</span>
           </button>
           <button
             type="button"
             aria-pressed={prefs.theme === 'ink'}
-            className="nav-btn nav-btn-util"
+            className="nav-btn mobile-util-only"
             onClick={onToggleTheme}
           >
-            {prefs.theme === 'parchment' ? '玄夜' : '宣纸'}
+            <AppIcon name={prefs.theme === 'parchment' ? 'moon' : 'sun'} />
+            <span>{prefs.theme === 'parchment' ? '玄夜' : '日间'}</span>
           </button>
-          <button type="button" className="nav-btn nav-btn-util" onClick={onGoTitle}>
-            封面
+          <button
+            type="button"
+            className="nav-btn mobile-util-only"
+            onClick={onGoTitle}
+          >
+            <AppIcon name="home" />
+            <span>封面</span>
           </button>
         </div>
       </header>
@@ -205,57 +280,59 @@ export const TopStatusBar: React.FC<TopStatusBarProps> = ({
           type="button"
           aria-expanded={activeDrawer === 'status'}
           className={`mobile-tab-btn ${activeDrawer === 'status' ? 'active' : ''}`}
-          onClick={() => onOpenDrawer(activeDrawer === 'status' ? null : 'status')}
+          onClick={() => toggleDrawer('status')}
         >
-          命格
+          <AppIcon name="user" />
+          <span>命格</span>
         </button>
         <button
           type="button"
           aria-expanded={activeDrawer === 'world'}
           className={`mobile-tab-btn ${activeDrawer === 'world' ? 'active' : ''}`}
-          onClick={() => onOpenDrawer(activeDrawer === 'world' ? null : 'world')}
+          onClick={() => toggleDrawer('world')}
         >
-          世局
+          <AppIcon name="globe" />
+          <span>世局</span>
         </button>
         <button
           type="button"
           aria-expanded={activeDrawer === 'companions'}
           className={`mobile-tab-btn ${activeDrawer === 'companions' ? 'active' : ''}`}
-          onClick={() =>
-            onOpenDrawer(activeDrawer === 'companions' ? null : 'companions')
-          }
+          onClick={() => toggleDrawer('companions')}
         >
-          故人
+          <AppIcon name="users" />
+          <span>故人</span>
         </button>
         <button
           type="button"
           aria-expanded={activeDrawer === 'sanctuary'}
           className={`mobile-tab-btn ${activeDrawer === 'sanctuary' ? 'active' : ''}`}
-          onClick={() =>
-            onOpenDrawer(activeDrawer === 'sanctuary' ? null : 'sanctuary')
-          }
+          onClick={() => toggleDrawer('sanctuary')}
         >
+          <AppIcon name="heart" />
           <span>仙缘</span>
           {hasSanctuaryHighlight && (
-            <span className="nav-dot" aria-label="有未启仙缘契机" />
+            <span className="nav-dot mobile-tab-dot" aria-label="有未启仙缘契机" />
           )}
         </button>
         <button
           type="button"
           aria-expanded={activeDrawer === 'saves'}
           className={`mobile-tab-btn ${activeDrawer === 'saves' ? 'active' : ''}`}
-          onClick={() => onOpenDrawer(activeDrawer === 'saves' ? null : 'saves')}
+          onClick={() => toggleDrawer('saves')}
         >
-          命盘
+          <AppIcon name="archive" />
+          <span>命盘</span>
         </button>
         <button
           type="button"
           aria-expanded={activeDrawer === 'meta'}
           aria-label="万象志"
           className={`mobile-tab-btn ${activeDrawer === 'meta' ? 'active' : ''}`}
-          onClick={() => onOpenDrawer(activeDrawer === 'meta' ? null : 'meta')}
+          onClick={() => toggleDrawer('meta')}
         >
-          万象
+          <AppIcon name="bookOpen" />
+          <span>万象</span>
         </button>
       </nav>
     </>

@@ -15,13 +15,14 @@ import {
   getWorldClimateSnapshot,
 } from '../engine/worldview';
 import { MarketPanel } from './MarketPanel';
+import { AppIcon } from './Icon';
 
-const CATEGORY_ORDER: Array<{ key: ChoiceCategory; title: string; hint: string }> = [
-  { key: 'story', title: '世局大势', hint: '正在展开的阶段事件与暗流，由你决定先后' },
-  { key: 'plan', title: '日常谋划', hint: '自主分配光阴：潜修、营生、买讯或四方游历' },
-  { key: 'market', title: '坊市商机', hint: '随世局起伏的行市货品与稀缺奇物' },
-  { key: 'companion', title: '寻访故人', hint: '凭已有门路或交情主动拜访、赠礼、切磋' },
-  { key: 'breakthrough', title: '破境关口', hint: '筹备齐备后，由你亲自拍板闭关破境' },
+const CATEGORY_ORDER: Array<{ key: ChoiceCategory; title: string }> = [
+  { key: 'story', title: '世局大势' },
+  { key: 'plan', title: '日常谋划' },
+  { key: 'market', title: '坊市商机' },
+  { key: 'companion', title: '寻访故人' },
+  { key: 'breakthrough', title: '破境关口' },
 ];
 
 interface ReaderViewProps {
@@ -90,7 +91,6 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
     [pending, scene, state]
   );
   const title = resolveTextValue(scene.title, state) ?? scene.title;
-  const subtitle = resolveTextValue(scene.subtitle, state);
   const location = resolveTextValue(scene.location, state);
   const choices = useMemo(
     () => getResolvedChoices(state, scene, registry),
@@ -112,7 +112,6 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
     return grouped;
   }, [choices, isGroupedHub]);
 
-  // 仅当真正切换场景或读档重载（非在同页展开 pendingTransition）时才重置正文显现
   const sceneKey = `${state.runId}_${loadNonce}_${scene.id}_${state.actBeat}_${state.completedScenes.length}`;
   const instantTextRef = useRef(instantText);
   instantTextRef.current = instantText;
@@ -123,7 +122,6 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
     instantText ? (pending?.paragraphs.length ?? 0) : 1
   );
 
-  // 场景变化时重置正文显现并滚回顶部（切回逐段模式不折叠重播当前已读正文）
   useEffect(() => {
     if (pending) {
       setVisibleCount(paragraphs.length);
@@ -148,7 +146,6 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sceneKey]);
 
-  // 正文逐段显现
   useEffect(() => {
     if (pending || instantText || visibleCount >= paragraphs.length) return;
     const timer = window.setTimeout(() => {
@@ -157,7 +154,6 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
     return () => window.clearTimeout(timer);
   }, [pending, visibleCount, paragraphs.length, instantText]);
 
-  // 进入同页抉择演绎态时，逐段显现演绎文字并柔滑滚动至演绎区
   const pendingKey = pending
     ? `${scene.id}_${pending.chosenLabel}_${pending.nextSceneId}`
     : '';
@@ -179,7 +175,6 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingKey]);
 
-  // 仅当切换为「瞬显」时立即补展尚未显现完的段落，切回「逐段」绝不倒退当前页
   useEffect(() => {
     if (!instantText) return;
     setVisibleCount(paragraphs.length);
@@ -201,7 +196,6 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
   const sceneRevealed = visibleCount >= paragraphs.length;
   const outcomeRevealed = !pending || outcomeVisibleCount >= pending.paragraphs.length;
 
-  // 进入演绎态或演绎展开完毕时承接键盘焦点，避免选项区卸载导致焦点跌落 document.body
   useEffect(() => {
     if (!pending || drawerOpen) return;
     const timer = window.setTimeout(() => {
@@ -283,7 +277,7 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
     <main className="reader-main">
       {externalRunChanged && onSyncExternalRun && (
         <div className="notice-strip sync-notice-strip" role="status" aria-live="polite">
-          <span>另一标签页已更新此世命盘，继续操作将覆盖其进度。</span>
+          <span>另一标签页已更新此世命盘。</span>
           <button type="button" className="mini-btn" onClick={onSyncExternalRun}>
             同步最新命盘
           </button>
@@ -293,24 +287,24 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
       {!pending && state.recentNotices.length > 0 && (
         <div className="notice-strip" role="status" aria-live="polite">
           {state.recentNotices.map((n, i) => (
-            <div key={i}>· {n}</div>
+            <div key={i}>{n}</div>
           ))}
         </div>
       )}
 
       <header className="scene-header">
-        <div className="scene-meta-line">
-          <span>{subtitle ?? '长生烬'}</span>
-          <span>{location}</span>
-        </div>
+        {location && (
+          <div className="scene-meta-line">
+            <span>{location}</span>
+          </div>
+        )}
         <h1 className="scene-title" ref={sceneTitleRef} tabIndex={-1}>
           {title}
         </h1>
       </header>
 
       {actEcho && (
-        <aside className="act-echo-card" aria-label="前尘余波与本卷局势">
-          <div className="act-echo-banner">{actEcho.actBanner}</div>
+        <aside className="act-echo-block" aria-label="前尘余波与本卷局势">
           <div className="act-echo-title">{actEcho.title}</div>
           <ul className="act-echo-list">
             {actEcho.bullets.map((line, i) => (
@@ -320,27 +314,28 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
         </aside>
       )}
 
-      <article
-        className={`prose-flow ${pending ? 'prose-settled' : ''}`}
-        onClick={() => {
-          if (!pending && !sceneRevealed) {
-            setVisibleCount(paragraphs.length);
-          }
-        }}
-        title={!pending && !sceneRevealed ? '点击或按空格键立即展开全文' : undefined}
-      >
-        {paragraphs.slice(0, visibleCount).map((p, idx) => (
-          <p className="prose-paragraph" key={`${sceneKey}_${idx}`}>
-            {p}
-          </p>
-        ))}
-      </article>
+      <div className="prose-flow-wrap">
+        <article
+          className={`prose-flow ${pending ? 'prose-settled' : ''}`}
+          onClick={() => {
+            if (!pending && !sceneRevealed) {
+              setVisibleCount(paragraphs.length);
+            }
+          }}
+        >
+          {paragraphs.slice(0, visibleCount).map((p, idx) => (
+            <p className="prose-paragraph" key={`${sceneKey}_${idx}`}>
+              {p}
+            </p>
+          ))}
+        </article>
 
-      {!pending && !sceneRevealed && (
-        <div className="prose-hint-skip">
-          点击正文<span className="desktop-hotkey-hint">或按空格键</span>，可瞬息展开全文
-        </div>
-      )}
+        {!pending && !sceneRevealed && (
+          <div className="prose-hint-skip intent-secondary">
+            点击正文展开全文
+          </div>
+        )}
+      </div>
 
       {!pending && sceneRevealed && scene.market && (
         <MarketPanel
@@ -358,13 +353,15 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
           aria-label={scene.isHub ? '行迹谋划台' : '你的抉择'}
         >
           {scene.isHub && hubProgress && worldClimate && (
-            <div className="hub-progress-card" aria-label="本卷行迹脉络">
+            <div className="hub-progress-strip" aria-label="本卷行迹脉络">
               <div className="hub-progress-top">
                 <span className="hub-progress-title">
-                  {hubProgress.actMeta.shortLabel} · {hubProgress.actMeta.title}（
-                  {hubProgress.actMeta.region}）
+                  {hubProgress.actMeta.shortLabel} · {hubProgress.actMeta.title}
                 </span>
-                <div className="act-stepper" aria-label={`全六卷进程：当前第 ${hubProgress.actOrder} 卷`}>
+                <div
+                  className="act-stepper"
+                  aria-label={`全六卷进程：当前第 ${hubProgress.actOrder} 卷`}
+                >
                   {ACT_ORDER.map((aid, idx) => {
                     const ord = idx + 1;
                     const cls =
@@ -397,34 +394,29 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
               </div>
 
               {hubProgress.majorArcs.length > 0 && (
-                <div className="hub-arc-chips">
-                  {hubProgress.majorArcs.map((arc) => {
-                    const prefix =
-                      arc.status === 'completed'
-                        ? '✓ '
-                        : arc.status === 'in_progress'
-                        ? '● '
-                        : arc.status === 'missed'
-                        ? '× '
-                        : '○ ';
-                    return (
-                      <span
-                        key={arc.threadId}
-                        className={`hub-arc-chip ${arc.status}`}
-                      >
-                        {prefix}
-                        {arc.label}
-                      </span>
-                    );
-                  })}
+                <div className="hub-arc-list">
+                  {hubProgress.majorArcs.map((arc) => (
+                    <span
+                      key={arc.threadId}
+                      className={`hub-arc-item ${arc.status}`}
+                    >
+                      {arc.status === 'completed' && <AppIcon name="check" />}
+                      <span>{arc.label}</span>
+                    </span>
+                  ))}
                 </div>
               )}
 
               <div className="hub-progress-foot">
                 <span>九州灵脉：{worldClimate.veinLabel}</span>
                 {onOpenWorld && (
-                  <button type="button" className="mini-btn" onClick={onOpenWorld}>
-                    查六方势力与九州世局 →
+                  <button
+                    type="button"
+                    className="mini-btn mini-btn-surface"
+                    onClick={onOpenWorld}
+                  >
+                    <span>九州世局</span>
+                    <AppIcon name="arrowRight" />
                   </button>
                 )}
               </div>
@@ -433,16 +425,16 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
 
           {scene.isHub && choices.some((c) => c.category) ? (
             <>
-              <div className="choices-caption">
-                行迹谋划台 · 每一季去向由你定夺
-                {choices.length > 0 && (
-                  <span className="desktop-hotkey-hint">
+              {choices.length > 0 && (
+                <div className="choices-caption">
+                  <span>行迹谋划</span>
+                  <span className="desktop-hotkey-hint intent-secondary">
                     {choices.length === 1
-                      ? '（快捷键 1）'
-                      : `（快捷键 1-${Math.min(9, choices.length)}）`}
+                      ? '快捷键 1'
+                      : `快捷键 1-${Math.min(9, choices.length)}`}
                   </span>
-                )}
-              </div>
+                </div>
+              )}
               {(() => {
                 let runningIdx = 0;
                 const renderChoiceBtn = (choice: ResolvedChoice) => {
@@ -471,18 +463,15 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
                         )}
                         {choice.locked && choice.lockReason && (
                           <div className="choice-lock">
-                            〔条件未成：{choice.lockReason}〕
+                            <AppIcon name="lock" />
+                            <span>{choice.lockReason}</span>
                           </div>
                         )}
                         {tianjiInsight &&
                           choice.insightTags &&
                           choice.insightTags.length > 0 && (
-                            <div className="choice-insight">
-                              {choice.insightTags.map((tag) => (
-                                <span className="insight-chip" key={tag}>
-                                  {tag}
-                                </span>
-                              ))}
+                            <div className="choice-insight-line">
+                              {choice.insightTags.join(' · ')}
                             </div>
                           )}
                       </div>
@@ -503,7 +492,6 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
                         <div className="hub-group" key={group.key}>
                           <div className="hub-group-head">
                             <span className="hub-group-title">{group.title}</span>
-                            <span className="hub-group-hint">{group.hint}</span>
                           </div>
                           <div
                             className={
@@ -529,12 +517,12 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
           ) : (
             <>
               <div className="choices-caption">
-                择路而行
+                <span>择路而行</span>
                 {choices.length > 0 && (
-                  <span className="desktop-hotkey-hint">
+                  <span className="desktop-hotkey-hint intent-secondary">
                     {choices.length === 1
-                      ? '（可按数字键 1 快速抉择）'
-                      : `（可按数字键 1-${Math.min(9, choices.length)} 快速抉择）`}
+                      ? '可按数字键 1 快速抉择'
+                      : `可按数字键 1-${Math.min(9, choices.length)} 快速抉择`}
                   </span>
                 )}
               </div>
@@ -557,18 +545,15 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
                       )}
                       {choice.locked && choice.lockReason && (
                         <div className="choice-lock">
-                          〔条件未成：{choice.lockReason}〕
+                          <AppIcon name="lock" />
+                          <span>{choice.lockReason}</span>
                         </div>
                       )}
                       {tianjiInsight &&
                         choice.insightTags &&
                         choice.insightTags.length > 0 && (
-                          <div className="choice-insight">
-                            {choice.insightTags.map((tag) => (
-                              <span className="insight-chip" key={tag}>
-                                {tag}
-                              </span>
-                            ))}
+                          <div className="choice-insight-line">
+                            {choice.insightTags.join(' · ')}
                           </div>
                         )}
                     </div>
@@ -580,7 +565,6 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
         </section>
       )}
 
-      {/* ==================== 同页续写：抉择后的专属剧情演绎 ==================== */}
       {pending && (
         <section
           ref={outcomeAnchorRef}
@@ -594,7 +578,6 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
           }}
         >
           <div className="outcome-chosen-quote">
-            <span className="outcome-chosen-tag">你择定了</span>
             <span className="outcome-chosen-text">「{pending.chosenLabel}」</span>
           </div>
 
@@ -606,18 +589,16 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
             ))}
           </div>
 
-          {!outcomeRevealed && (
-            <div className="prose-hint-skip">
-              点击<span className="desktop-hotkey-hint">或按空格键</span>，立即展开演绎
-            </div>
-          )}
-
           {outcomeRevealed && (
             <>
               {pending.notices.length > 0 && (
-                <div className="notice-strip outcome-notices" role="status" aria-live="polite">
+                <div
+                  className="notice-strip outcome-notices"
+                  role="status"
+                  aria-live="polite"
+                >
                   {pending.notices.map((n, i) => (
-                    <div key={i}>· {n}</div>
+                    <div key={i}>{n}</div>
                   ))}
                 </div>
               )}
@@ -630,9 +611,9 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
                   onClick={onCommitTransition}
                 >
                   <span>{pending.continueLabel}</span>
-                  <span className="continue-arrow">→</span>
+                  <AppIcon name="arrowRight" />
                 </button>
-                <span className="continue-hotkey desktop-hotkey-hint">
+                <span className="continue-hotkey desktop-hotkey-hint intent-secondary">
                   按 Enter 或空格翻页
                 </span>
               </div>

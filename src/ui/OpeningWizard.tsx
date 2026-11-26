@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ContentRegistry, Gender, PlayerProfile } from '../engine/types';
+import { AppIcon } from './Icon';
 
 interface OpeningWizardProps {
   registry: ContentRegistry;
@@ -71,23 +72,14 @@ export const OpeningWizard: React.FC<OpeningWizardProps> = ({
   return (
     <main className="wizard-container">
       <div className="wizard-header">
-        <div className="wizard-step-label">
-          立命定途 · 第 {step} / 3 步
-        </div>
         <h1 className="wizard-title" ref={stepTitleRef} tabIndex={-1}>
           {step === 1
-            ? '初定姓名与出身'
+            ? '姓名与出身'
             : step === 2
-            ? '择二桩开局宿缘'
-            : '立下最初道心'}
+            ? '择二桩宿缘'
+            : '立最初道心'}
         </h1>
-        <p className="wizard-desc">
-          {step === 1
-            ? '长明三千零一十二年春，十六岁的你正立于青岚界域的风浪之前。尘世漫漫，此去所逢四位故人，缘法皆由心而定。'
-            : step === 2
-            ? '从八桩旧事中任选两项，既定开局机缘，也埋下半生伏笔与故人缘法。'
-            : '这颗最初的道心将在未来数十年的岁月与心魔中，反复叩问你是否仍记得来路。'}
-        </p>
+        <span className="wizard-step-count">{step} / 3</span>
       </div>
 
       {step === 1 && (
@@ -112,64 +104,69 @@ export const OpeningWizard: React.FC<OpeningWizardProps> = ({
             />
           </div>
 
-          <div className="wizard-form-row">
-            <span className="wizard-label">身世性别</span>
-            <div className="pill-group">
-              {(
-                [
-                  ['male', '男'],
-                  ['female', '女'],
-                  ['other', '不拘'],
-                ] as const
-              ).map(([g, label]) => (
-                <button
-                  key={g}
-                  type="button"
-                  aria-pressed={gender === g}
-                  className={`select-pill ${gender === g ? 'selected' : ''}`}
-                  onClick={() => handleGenderChange(g)}
-                >
-                  {label}
-                </button>
-              ))}
+          <div className="wizard-inline-pair">
+            <div className="wizard-form-row">
+              <span className="wizard-label">身世性别</span>
+              <div className="pill-group">
+                {(
+                  [
+                    ['male', '男'],
+                    ['female', '女'],
+                    ['other', '不拘'],
+                  ] as const
+                ).map(([g, label]) => (
+                  <button
+                    key={g}
+                    type="button"
+                    aria-pressed={gender === g}
+                    className={`select-pill ${gender === g ? 'selected' : ''}`}
+                    onClick={() => handleGenderChange(g)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="wizard-form-row">
+              <span className="wizard-label">世人称谓</span>
+              <div className="pill-group">
+                {DEFAULT_HONORIFICS[gender].map((h) => (
+                  <button
+                    key={h}
+                    type="button"
+                    aria-pressed={honorific === h}
+                    className={`select-pill ${honorific === h ? 'selected' : ''}`}
+                    onClick={() => setHonorific(h)}
+                  >
+                    {h}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
           <div className="wizard-form-row">
-            <span className="wizard-label">世人称谓</span>
-            <div className="pill-group">
-              {DEFAULT_HONORIFICS[gender].map((h) => (
-                <button
-                  key={h}
-                  type="button"
-                  aria-pressed={honorific === h}
-                  className={`select-pill ${honorific === h ? 'selected' : ''}`}
-                  onClick={() => setHonorific(h)}
-                >
-                  {h}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="wizard-form-row">
-            <span className="wizard-label">择一身份出身</span>
+            <span className="wizard-label">出身</span>
             <div className="option-grid">
-              {registry.origins.map((origin) => (
-                <button
-                  key={origin.id}
-                  type="button"
-                  aria-pressed={originId === origin.id}
-                  className={`option-card ${originId === origin.id ? 'selected' : ''}`}
-                  onClick={() => setOriginId(origin.id)}
-                >
-                  <div className="option-card-head">
-                    <span className="option-card-title">{origin.name}</span>
-                    <span className="option-card-epithet">{origin.epithet}</span>
-                  </div>
-                  <div className="option-card-body">{origin.desc}</div>
-                </button>
-              ))}
+              {registry.origins.map((origin) => {
+                const selected = originId === origin.id;
+                return (
+                  <button
+                    key={origin.id}
+                    type="button"
+                    aria-pressed={selected}
+                    className={`option-card ${selected ? 'selected' : ''}`}
+                    onClick={() => setOriginId(origin.id)}
+                  >
+                    <div className="option-card-head">
+                      <span className="option-card-title">{origin.name}</span>
+                      {selected && <AppIcon name="check" />}
+                    </div>
+                    <div className="option-card-body">{origin.desc}</div>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -177,9 +174,8 @@ export const OpeningWizard: React.FC<OpeningWizardProps> = ({
 
       {step === 2 && (
         <div>
-          <div style={{ marginBottom: 14, fontSize: '0.875rem', color: 'var(--text-soft)' }}>
-            已选：{openingEventIds.length} / 2 桩开局宿缘
-            {openingEventIds.length === 2 ? '（再点新项将替换较早一项）' : ''}
+          <div className="wizard-label">
+            已选 {openingEventIds.length} / 2
           </div>
           <div className="option-grid">
             {registry.openingEvents.map((ev) => {
@@ -193,12 +189,9 @@ export const OpeningWizard: React.FC<OpeningWizardProps> = ({
                   onClick={() => toggleEvent(ev.id)}
                 >
                   <div className="option-card-head">
-                    <span className="option-card-title">
-                      {selected ? '✦ ' : ''}
-                      {ev.name}
-                    </span>
+                    <span className="option-card-title">{ev.name}</span>
+                    {selected && <AppIcon name="check" />}
                   </div>
-                  <div className="option-card-epithet">{ev.tagline}</div>
                   <div className="option-card-body">{ev.desc}</div>
                 </button>
               );
@@ -209,21 +202,24 @@ export const OpeningWizard: React.FC<OpeningWizardProps> = ({
 
       {step === 3 && (
         <div className="option-grid">
-          {registry.daoHearts.map((heart) => (
-            <button
-              key={heart.id}
-              type="button"
-              aria-pressed={daoHeartId === heart.id}
-              className={`option-card ${daoHeartId === heart.id ? 'selected' : ''}`}
-              onClick={() => setDaoHeartId(heart.id)}
-            >
-              <div className="option-card-head">
-                <span className="option-card-title">{heart.name}</span>
-              </div>
-              <div className="option-card-epithet">「{heart.motto}」</div>
-              <div className="option-card-body">{heart.desc}</div>
-            </button>
-          ))}
+          {registry.daoHearts.map((heart) => {
+            const selected = daoHeartId === heart.id;
+            return (
+              <button
+                key={heart.id}
+                type="button"
+                aria-pressed={selected}
+                className={`option-card ${selected ? 'selected' : ''}`}
+                onClick={() => setDaoHeartId(heart.id)}
+              >
+                <div className="option-card-head">
+                  <span className="option-card-title">{heart.name}</span>
+                  {selected && <AppIcon name="check" />}
+                </div>
+                <div className="option-card-body">{heart.desc}</div>
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -233,7 +229,8 @@ export const OpeningWizard: React.FC<OpeningWizardProps> = ({
           className="ghost-btn"
           onClick={() => (step === 1 ? onCancel() : setStep((s) => (s - 1) as 1 | 2))}
         >
-          {step === 1 ? '返回封面' : '上一步'}
+          <AppIcon name="arrowLeft" />
+          <span>{step === 1 ? '返回封面' : '上一步'}</span>
         </button>
 
         {step < 3 ? (
@@ -246,7 +243,8 @@ export const OpeningWizard: React.FC<OpeningWizardProps> = ({
             }
             onClick={() => setStep((s) => (s + 1) as 2 | 3)}
           >
-            下一步
+            <span>下一步</span>
+            <AppIcon name="arrowRight" />
           </button>
         ) : (
           <button
@@ -264,9 +262,8 @@ export const OpeningWizard: React.FC<OpeningWizardProps> = ({
               })
             }
           >
-            {hasActiveRun
-              ? '再启新世（前尘可于命盘回溯）'
-              : '步入长明三千零一十二年'}
+            <span>{hasActiveRun ? '再启新世' : '步入长明三千零一十二年'}</span>
+            <AppIcon name="arrowRight" />
           </button>
         )}
       </div>

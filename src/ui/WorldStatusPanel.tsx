@@ -40,13 +40,20 @@ export const WorldStatusPanel: React.FC<WorldStatusPanelProps> = ({
 
   return (
     <div className="world-panel-wrap">
-      {/* 顶部：九州灵脉残存与天象大势仪表 */}
-      <div className={`card-block world-climate-card tone-${climate.crisisTone}`}>
+      <div className="world-climate-summary">
         <div className="card-block-head">
           <strong>
             {progress.actMeta.shortLabel} · {progress.actMeta.title}
           </strong>
-          <span className={`stance-badge ${climate.crisisTone === 'critical' ? 'danger' : climate.crisisTone === 'tense' ? 'accent' : 'warm'}`}>
+          <span
+            className={`stance-badge ${
+              climate.crisisTone === 'critical'
+                ? 'danger'
+                : climate.crisisTone === 'tense'
+                ? 'accent'
+                : 'warm'
+            }`}
+          >
             {climate.veinLabel}
           </span>
         </div>
@@ -68,7 +75,6 @@ export const WorldStatusPanel: React.FC<WorldStatusPanelProps> = ({
         </div>
       </div>
 
-      {/* 三页切换：六方势力 / 卷目脉络 / 疆域与六境 */}
       <div className="sanctuary-subtabs world-subtabs" role="tablist" aria-label="九州世局子页">
         <button
           type="button"
@@ -99,7 +105,6 @@ export const WorldStatusPanel: React.FC<WorldStatusPanelProps> = ({
         </button>
       </div>
 
-      {/* 子页 1：六大势力态势 */}
       {subTab === 'factions' && (
         <div className="world-section-list">
           {factions.map((fac) => (
@@ -115,18 +120,16 @@ export const WorldStatusPanel: React.FC<WorldStatusPanelProps> = ({
                   {fac.standingLabel}
                 </span>
               </div>
-              <div style={{ fontSize: '0.78125rem', color: 'var(--accent)', marginBottom: 4 }}>
-                当前态势：{fac.powerStatus}
+              <div className="overmatch-row">
+                <strong>态势：</strong>
+                {fac.powerStatus}
               </div>
-              <div style={{ fontSize: '0.8125rem', color: 'var(--text-soft)', lineHeight: 1.65 }}>
-                {fac.summary}
-              </div>
+              <div className="overmatch-row">{fac.summary}</div>
             </div>
           ))}
         </div>
       )}
 
-      {/* 子页 2：全六卷脉络与本卷核心大势 */}
       {subTab === 'progress' && (
         <div className="world-section-list">
           <div className="card-block">
@@ -136,11 +139,9 @@ export const WorldStatusPanel: React.FC<WorldStatusPanelProps> = ({
                 {progress.breakthroughUnlocked ? '关口已启' : '筹备中'}
               </span>
             </div>
-            <div style={{ fontSize: '0.8125rem', color: 'var(--text-soft)', lineHeight: 1.65 }}>
-              {progress.breakthroughProgressText}
-            </div>
+            <div className="overmatch-row">{progress.breakthroughProgressText}</div>
             {progress.hasMajorSlotLimit && (
-              <div className="overmatch-row" style={{ marginTop: 8 }}>
+              <div className="overmatch-row">
                 <strong>天时大势席位：</strong>
                 已深耕 {progress.majorSlotsUsed} / {progress.majorSlotsTotal} 席（余{' '}
                 {progress.majorSlotsRemaining} 席）
@@ -161,7 +162,7 @@ export const WorldStatusPanel: React.FC<WorldStatusPanelProps> = ({
             )}
           </div>
 
-          <div className="drawer-section" style={{ marginBottom: 0 }}>
+          <div className="drawer-section">
             <h3>六卷行迹脉络</h3>
             {ACT_ORDER.map((aid) => {
               const info = ACT_META[aid];
@@ -171,7 +172,7 @@ export const WorldStatusPanel: React.FC<WorldStatusPanelProps> = ({
               return (
                 <div
                   key={aid}
-                  className={`evidence-stage-card ${isPast ? 'done' : isCur ? 'partial' : ''}`}
+                  className={`evidence-stage-row ${isPast ? 'done' : isCur ? 'partial' : ''}`}
                 >
                   <div className="card-block-head">
                     <strong>
@@ -185,12 +186,12 @@ export const WorldStatusPanel: React.FC<WorldStatusPanelProps> = ({
                       {isCur ? '当前所处' : isPast ? '已历经' : '前路未至'}
                     </span>
                   </div>
-                  <div style={{ fontSize: '0.78125rem', color: 'var(--text-muted)', marginBottom: 3 }}>
+                  <div className="faction-meta-sub">
                     {isFuture
                       ? `所叩境界：${info.realmGoal}`
                       : `疆域：${info.region} · 所叩：${info.realmGoal}`}
                   </div>
-                  <div style={{ fontSize: '0.8125rem', color: 'var(--text-soft)' }}>
+                  <div className="overmatch-row">
                     {isFuture ? '前路风云未明，待踏入此境方见天地剧变。' : info.summary}
                   </div>
                 </div>
@@ -200,15 +201,14 @@ export const WorldStatusPanel: React.FC<WorldStatusPanelProps> = ({
         </div>
       )}
 
-      {/* 子页 3：九州疆域志与六境长生阶梯 */}
       {subTab === 'atlas' && (
         <div className="world-section-list">
-          <div className="drawer-section" style={{ marginBottom: 12 }}>
+          <div className="drawer-section">
             <h3>九州疆域志</h3>
             {regions.map((r) => (
               <div
                 key={r.id}
-                className={`evidence-stage-card ${
+                className={`evidence-stage-row ${
                   r.status === 'current' ? 'partial' : r.status === 'visited' ? 'done' : ''
                 }`}
               >
@@ -230,19 +230,17 @@ export const WorldStatusPanel: React.FC<WorldStatusPanelProps> = ({
                       : r.actRange}
                   </span>
                 </div>
-                <div style={{ fontSize: '0.8125rem', color: 'var(--text-soft)' }}>
-                  {r.desc}
-                </div>
+                <div className="overmatch-row">{r.desc}</div>
               </div>
             ))}
           </div>
 
-          <div className="drawer-section" style={{ marginBottom: 0 }}>
+          <div className="drawer-section">
             <h3>长生六境与寿元阶梯</h3>
             {ladder.map((tier) => (
               <div
                 key={tier.id}
-                className={`evidence-stage-card ${
+                className={`evidence-stage-row ${
                   tier.status === 'current'
                     ? 'partial'
                     : tier.status === 'passed'
@@ -274,9 +272,7 @@ export const WorldStatusPanel: React.FC<WorldStatusPanelProps> = ({
                       : '高远天堑'}
                   </span>
                 </div>
-                <div style={{ fontSize: '0.8125rem', color: 'var(--text-soft)' }}>
-                  {tier.desc}
-                </div>
+                <div className="overmatch-row">{tier.desc}</div>
               </div>
             ))}
           </div>

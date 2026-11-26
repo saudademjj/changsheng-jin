@@ -9,6 +9,7 @@ import {
   getRelicPriceReasons,
   sellMarketGood,
 } from '../engine/economy';
+import { AppIcon } from './Icon';
 
 interface MarketPanelProps {
   config: MarketSceneConfig;
@@ -98,40 +99,35 @@ export const MarketPanel: React.FC<MarketPanelProps> = ({
   };
 
   return (
-    <section className="market-box" aria-label="坊市行市">
+    <section className="market-section" aria-label="坊市行市">
       <div className="market-head">
         <h2 className="market-title">{config.venueName}</h2>
-        <span className="status-stones">手头灵石：{state.spiritStones}</span>
-      </div>
-      <div style={{ fontSize: '0.84375rem', color: 'var(--text-soft)' }}>
-        {config.venueDesc}
+        <span className="status-stones">灵石 {state.spiritStones}</span>
       </div>
 
       <div className="market-rumor">
-        <strong>当前风声：</strong>
+        <strong>风声：</strong>
         {state.market.rumorText}
       </div>
 
       <div className="market-indices">
-        <span className="index-badge">
-          丹药药材：
+        <span>
+          丹药：
           <span className={`trend-${elixirTrend.tone}`}>{elixirTrend.label}</span>
         </span>
-        <span className="index-badge">
-          符箓法器：
+        <span>
+          法器：
           <span className={`trend-${artifactTrend.tone}`}>{artifactTrend.label}</span>
         </span>
-        <span className="index-badge">
-          古籍奇物：
+        <span>
+          奇物：
           <span className={`trend-${curioTrend.tone}`}>{curioTrend.label}</span>
         </span>
       </div>
 
-      <div className="market-subheading">
-        {isLiquidationOnly
-          ? '末法出清余货（行至终卷，仅可脱手存货易石以备重宝）'
-          : '行市货品（可趁大势起伏低买高卖）'}
-      </div>
+      <h3 className="market-subheading">
+        {isLiquidationOnly ? '末法出清' : '行市货品'}
+      </h3>
       {isLiquidationOnly ? (
         heldGoodsForLiquidation.length === 0 ? (
           <div className="market-empty-note">
@@ -140,7 +136,7 @@ export const MarketPanel: React.FC<MarketPanelProps> = ({
               : '行囊已无余货待沽，本坊奇物亦已悉数易主。'}
           </div>
         ) : (
-          <div>
+          <div className="market-list">
             {heldGoodsForLiquidation.map((id) => {
               const good = registry.marketGoods[id];
               const holding = state.market.holdings[id];
@@ -150,25 +146,11 @@ export const MarketPanel: React.FC<MarketPanelProps> = ({
               const unitDelta = Math.round(price - holding.avgCost);
               return (
                 <div className="market-row" key={id}>
-                  <div>
+                  <div className="market-item-main">
                     <div className="market-item-name">
-                      {good.name}
-                      <span
-                        style={{
-                          marginLeft: 10,
-                          fontWeight: 400,
-                          color: 'var(--gold)',
-                        }}
-                      >
-                        收购 {price} 灵石
-                      </span>
-                      <span
-                        style={{
-                          marginLeft: 10,
-                          fontSize: '0.78125rem',
-                          color: 'var(--jade)',
-                        }}
-                      >
+                      <span>{good.name}</span>
+                      <span className="market-item-meta">收购 {price} 灵石</span>
+                      <span className="market-item-meta">
                         已持 {holding.qty}（均价 {avgCostDisplay}）
                         <span
                           className={
@@ -200,7 +182,7 @@ export const MarketPanel: React.FC<MarketPanelProps> = ({
                     </button>
                     <button
                       type="button"
-                      className="mini-btn"
+                      className="mini-btn intent-secondary"
                       aria-label={`全部卖出${good.name}`}
                       onClick={() => handleSellGood(id, holding.qty)}
                     >
@@ -213,7 +195,7 @@ export const MarketPanel: React.FC<MarketPanelProps> = ({
           </div>
         )
       ) : (
-        <div>
+        <div className="market-list">
           {config.goodsIds.map((id) => {
             const good = registry.marketGoods[id];
             if (!good) return null;
@@ -224,20 +206,12 @@ export const MarketPanel: React.FC<MarketPanelProps> = ({
             const unitDelta = holding ? Math.round(price - holding.avgCost) : 0;
             return (
               <div className="market-row" key={id}>
-                <div>
+                <div className="market-item-main">
                   <div className="market-item-name">
-                    {good.name}
-                    <span style={{ marginLeft: 10, fontWeight: 400, color: 'var(--gold)' }}>
-                      {price} 灵石
-                    </span>
+                    <span>{good.name}</span>
+                    <span className="market-item-meta">{price} 灵石</span>
                     {heldQty > 0 && holding && (
-                      <span
-                        style={{
-                          marginLeft: 10,
-                          fontSize: '0.78125rem',
-                          color: 'var(--jade)',
-                        }}
-                      >
+                      <span className="market-item-meta">
                         已持 {heldQty}（均价 {avgCostDisplay}）
                         <span
                           className={
@@ -271,7 +245,7 @@ export const MarketPanel: React.FC<MarketPanelProps> = ({
                   </button>
                   <button
                     type="button"
-                    className="mini-btn"
+                    className="mini-btn intent-secondary"
                     aria-label={`买入 5 件${good.name}`}
                     disabled={state.spiritStones < price * 5}
                     onClick={() => handleBuyGood(id, 5)}
@@ -280,7 +254,7 @@ export const MarketPanel: React.FC<MarketPanelProps> = ({
                   </button>
                   <button
                     type="button"
-                    className="mini-btn"
+                    className="mini-btn intent-secondary"
                     aria-label={`买满${good.name}`}
                     disabled={state.spiritStones < price * 2}
                     onClick={() =>
@@ -300,7 +274,7 @@ export const MarketPanel: React.FC<MarketPanelProps> = ({
                   </button>
                   <button
                     type="button"
-                    className="mini-btn"
+                    className="mini-btn intent-secondary"
                     aria-label={`全部卖出${good.name}`}
                     disabled={heldQty <= 0}
                     onClick={() => handleSellGood(id, heldQty)}
@@ -316,10 +290,8 @@ export const MarketPanel: React.FC<MarketPanelProps> = ({
 
       {legacyHoldingIds.length > 0 && (
         <>
-          <div className="market-subheading">
-            随身旧货脱手（本坊不新进此货，仍可按当前行市易石）
-          </div>
-          <div>
+          <h3 className="market-subheading">随身旧货</h3>
+          <div className="market-list">
             {legacyHoldingIds.map((id) => {
               const good = registry.marketGoods[id];
               const holding = state.market.holdings[id];
@@ -329,25 +301,11 @@ export const MarketPanel: React.FC<MarketPanelProps> = ({
               const unitDelta = Math.round(price - holding.avgCost);
               return (
                 <div className="market-row" key={id}>
-                  <div>
+                  <div className="market-item-main">
                     <div className="market-item-name">
-                      {good.name}
-                      <span
-                        style={{
-                          marginLeft: 10,
-                          fontWeight: 400,
-                          color: 'var(--gold)',
-                        }}
-                      >
-                        收购 {price} 灵石
-                      </span>
-                      <span
-                        style={{
-                          marginLeft: 10,
-                          fontSize: '0.78125rem',
-                          color: 'var(--jade)',
-                        }}
-                      >
+                      <span>{good.name}</span>
+                      <span className="market-item-meta">收购 {price} 灵石</span>
+                      <span className="market-item-meta">
                         已持 {holding.qty}（均价 {avgCostDisplay}）
                         <span
                           className={
@@ -379,7 +337,7 @@ export const MarketPanel: React.FC<MarketPanelProps> = ({
                     </button>
                     <button
                       type="button"
-                      className="mini-btn"
+                      className="mini-btn intent-secondary"
                       aria-label={`全部卖出${good.name}`}
                       onClick={() => handleSellGood(id, holding.qty)}
                     >
@@ -395,15 +353,13 @@ export const MarketPanel: React.FC<MarketPanelProps> = ({
 
       {config.relicOffers.length > 0 && (
         <>
-          <div className="market-subheading">
-            稀缺奇物（购得可于关键风波与破境中改命）
-          </div>
+          <h3 className="market-subheading">稀缺奇物</h3>
           {visibleRelics.length === 0 ? (
             <div className="market-empty-note">
               本坊镇阁奇物皆已归你囊中，坊主再无余货可售。
             </div>
           ) : (
-            <div>
+            <div className="market-list">
               {visibleRelics.map((offer) => {
                 const relic = registry.relics[offer.relicId];
                 if (!relic) return null;
@@ -417,33 +373,16 @@ export const MarketPanel: React.FC<MarketPanelProps> = ({
                 const reasons = getRelicPriceReasons(state, offer.relicId);
                 return (
                   <div className="market-row" key={offer.relicId}>
-                    <div>
+                    <div className="market-item-main">
                       <div className="market-item-name">
-                        【{relic.name}】
-                        <span
-                          style={{
-                            marginLeft: 8,
-                            fontSize: '0.75rem',
-                            color: 'var(--accent)',
-                            fontWeight: 400,
-                          }}
-                        >
-                          {relic.rarity}
-                        </span>
-                        <span
-                          style={{
-                            marginLeft: 10,
-                            fontWeight: 400,
-                            color: 'var(--gold)',
-                          }}
-                        >
-                          {price} 灵石
-                        </span>
-                        {reasons.map((r) => (
-                          <span className="market-tag-soft" key={r}>
-                            {r}
+                        <span>【{relic.name}】</span>
+                        <span className="market-item-accent">{relic.rarity}</span>
+                        <span className="market-item-meta">{price} 灵石</span>
+                        {reasons.length > 0 && (
+                          <span className="market-item-accent">
+                            {reasons.join(' · ')}
                           </span>
-                        ))}
+                        )}
                       </div>
                       <div className="market-item-desc">
                         {relic.desc} {relic.storyUseHint}
@@ -470,7 +409,8 @@ export const MarketPanel: React.FC<MarketPanelProps> = ({
 
       {feedback && (
         <div className="market-feedback" role="status" aria-live="polite">
-          ✦ {feedback}
+          <AppIcon name="sparkle" />
+          <span>{feedback}</span>
         </div>
       )}
     </section>

@@ -64,7 +64,7 @@ export const App: React.FC = () => {
     document.documentElement.setAttribute('data-theme', prefs.theme);
     const themeMeta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
     if (themeMeta) {
-      themeMeta.content = prefs.theme === 'ink' ? '#131210' : '#f6f0e4';
+      themeMeta.content = prefs.theme === 'ink' ? '#111111' : '#ffffff';
     }
     if (skipNextPrefsWriteRef.current) {
       skipNextPrefsWriteRef.current = false;
@@ -329,6 +329,7 @@ export const App: React.FC = () => {
               onOpenDrawer={setActiveDrawer}
               onToggleTianji={toggleTianji}
               onToggleTheme={toggleTheme}
+              onToggleInstantText={toggleInstantText}
               onGoTitle={() => {
                 setActiveDrawer(null);
                 setScreen('title');

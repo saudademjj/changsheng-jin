@@ -27,6 +27,7 @@ import {
   SanctuaryActionResult,
   triggerMilestone1,
 } from '../engine/sanctuary';
+import { AppIcon } from './Icon';
 
 interface CompanionSanctuaryProps {
   state: GameState;
@@ -149,7 +150,7 @@ export const CompanionSanctuary: React.FC<CompanionSanctuaryProps> = ({
               <>
                 {' '}
                 此生唯一道侣：
-                <strong style={{ color: 'var(--accent)' }}>
+                <strong className="stance-badge partner">
                   {registry.companions[activeOrDeceasedPartner].name}
                 </strong>
                 。
@@ -159,7 +160,7 @@ export const CompanionSanctuary: React.FC<CompanionSanctuaryProps> = ({
         ) : activeOrDeceasedPartner ? (
           <span>
             此生唯一道侣：
-            <strong style={{ color: 'var(--accent)' }}>
+            <strong className="stance-badge partner">
               {registry.companions[activeOrDeceasedPartner].name}
             </strong>
             {isCompanionDeceased(state, activeOrDeceasedPartner)
@@ -170,18 +171,17 @@ export const CompanionSanctuary: React.FC<CompanionSanctuaryProps> = ({
           </span>
         ) : tianjiInsight ? (
           <span>
-            情谊达 <strong>30</strong> 启「知交夜话」，达 <strong>75</strong> 可择一故人结为
-            <strong>此生唯一道侣</strong>，其余至交可结<strong>生死挚交</strong>。
+            情谊达 <strong>30</strong> 启「知交夜话」，达 <strong>75</strong> 可结
+            <strong>唯一道侣</strong>或<strong>生死挚交</strong>。
           </span>
         ) : (
           <span>
-            情谊渐深可启「知交夜话」，心意相许后可择一故人结为
-            <strong>此生唯一道侣</strong>，其余至交可结<strong>生死挚交</strong>。
+            情谊渐深可启「知交夜话」，心意相许后可结<strong>唯一道侣</strong>或
+            <strong>生死挚交</strong>。
           </span>
         )}
       </div>
 
-      {/* 四位故人切换栏 */}
       <div className="sanctuary-tabs" role="tablist" aria-label="选择仙缘故人">
         {COMPANION_ORDER.map((cid) => {
           const cDef = registry.companions[cid];
@@ -216,38 +216,23 @@ export const CompanionSanctuary: React.FC<CompanionSanctuaryProps> = ({
             <strong>未启之缘 · {def.faction}</strong>
             <span className="stance-badge muted">素未谋面</span>
           </div>
-          <div style={{ fontSize: '0.84375rem', color: 'var(--text-soft)' }}>
-            缘起线索：{def.encounterHint}
-          </div>
+          <div className="overmatch-row">缘起线索：{def.encounterHint}</div>
         </div>
       ) : (
         <>
-          {/* 故人总览与里程碑进度 */}
-          <div className={`card-block ${deceased ? 'card-block-deceased' : ''}`}>
+          <div className="sanctuary-overview">
             <div className="card-block-head">
-              <div>
-                <strong style={{ fontSize: '1.05rem' }}>{def.name}</strong>
-                <span
-                  style={{
-                    marginLeft: 8,
-                    fontSize: '0.78125rem',
-                    color: 'var(--text-muted)',
-                  }}
-                >
-                  {resolvedTitle}
-                </span>
+              <div className="faction-title-group">
+                <strong>{def.name}</strong>
+                <span className="faction-meta-sub">{resolvedTitle}</span>
               </div>
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                <span className={`stance-badge ${badge.tone}`}>{badge.label}</span>
-                {badge.subLabel && (
-                  <span className="stance-badge muted">{badge.subLabel}</span>
-                )}
-              </div>
+              <span className={`stance-badge ${badge.tone}`}>
+                {badge.label}
+                {badge.subLabel ? ` · ${badge.subLabel}` : ''}
+              </span>
             </div>
 
-            <div style={{ fontSize: '0.84375rem', color: 'var(--text-soft)', marginTop: 6 }}>
-              {resolvedBio}
-            </div>
+            <div className="overmatch-row">{resolvedBio}</div>
 
             {deceased ? (
               <div className="sanctuary-deceased-note">
@@ -284,7 +269,7 @@ export const CompanionSanctuary: React.FC<CompanionSanctuaryProps> = ({
                       ? '初识相交'
                       : '心存芥蒂'}
                   </span>
-                  <span style={{ color: 'var(--text-muted)' }}>
+                  <span className="status-soft">
                     {tianjiInsight
                       ? `情谊 ${comp.affection} / 100`
                       : partner
@@ -305,91 +290,86 @@ export const CompanionSanctuary: React.FC<CompanionSanctuaryProps> = ({
                     className={`sanctuary-meter-fill ${partner ? 'partner' : ''}`}
                     style={{ width: `${progressPct}%` }}
                   />
-                  <span
-                    className="sanctuary-meter-tick"
-                    style={{ left: '30%' }}
-                    title={tianjiInsight ? '30 · 知交夜话' : '知交夜话'}
-                  />
-                  <span
-                    className="sanctuary-meter-tick"
-                    style={{ left: '75%' }}
-                    title={tianjiInsight ? '75 · 定契结缘' : '心许结契'}
-                  />
+                  <span className="sanctuary-meter-tick" style={{ left: '30%' }} />
+                  <span className="sanctuary-meter-tick" style={{ left: '75%' }} />
                 </div>
                 <div className="sanctuary-meter-legend">
                   <span>初识</span>
                   <span>
                     {tianjiInsight ? '30 · 知交夜话' : '知交夜话'}
-                    {(comp.milestoneStage ?? 0) >= 1 ? ' ✓' : ''}
+                    {(comp.milestoneStage ?? 0) >= 1 ? ' · 已启' : ''}
                   </span>
                   <span>
                     {tianjiInsight ? '75 · 结契' : '心许结契'}
                     {comp.bondType === 'dao_partner'
-                      ? ' (道侣 ✓)'
+                      ? '（道侣）'
                       : comp.bondType === 'sworn'
-                      ? ' (挚交 ✓)'
+                      ? '（挚交）'
                       : ''}
                   </span>
                 </div>
               </div>
             )}
+          </div>
 
-            {/* 知交夜话契机 */}
-            {milestoneReady && (
-              <div className="sanctuary-bond-banner">
-                <div className="sanctuary-bond-title">✦ 知交夜话契机已至</div>
-                <div className="sanctuary-bond-desc">
-                  你与{def.name}已足够相知，不妨借此静夜推心深谈、解开心结，并获赠亲笔尺素。
-                </div>
+          {milestoneReady && (
+            <div className="sanctuary-bond-banner">
+              <div className="sanctuary-bond-title">
+                <AppIcon name="sparkle" />
+                <span>知交夜话契机已至</span>
+              </div>
+              <div className="sanctuary-bond-desc">
+                你与{def.name}已足够相知，不妨借此静夜推心深谈、解开心结，并获赠亲笔尺素。
+              </div>
+              <button
+                type="button"
+                className="primary-btn sanctuary-cta-btn"
+                onClick={() => applyAction(triggerMilestone1(state, selectedId))}
+              >
+                共赴「知交夜话」
+              </button>
+            </div>
+          )}
+
+          {showBondCeremony && (
+            <div className="sanctuary-bond-banner">
+              <div className="sanctuary-bond-title">
+                <AppIcon name="sparkle" />
+                <span>情谊既笃 · 择定此生名分</span>
+              </div>
+              <div className="sanctuary-bond-desc">
+                此刻可郑重向{def.name}许诺名分（道侣全世唯此一人；生死挚交不限人数）。
+              </div>
+              <div className="sanctuary-bond-actions">
                 <button
                   type="button"
                   className="primary-btn sanctuary-cta-btn"
-                  onClick={() => applyAction(triggerMilestone1(state, selectedId))}
+                  disabled={!partnerCheck.ok}
+                  title={partnerCheck.reason}
+                  onClick={() =>
+                    applyAction(commitCompanionBond(state, selectedId, 'dao_partner'))
+                  }
                 >
-                  共赴「知交夜话」
+                  许以唯一 · 结为道侣
+                </button>
+                <button
+                  type="button"
+                  className="ghost-btn sanctuary-cta-btn"
+                  disabled={!swornCheck.ok}
+                  title={swornCheck.reason}
+                  onClick={() =>
+                    applyAction(commitCompanionBond(state, selectedId, 'sworn'))
+                  }
+                >
+                  肝胆相照 · 结为生死挚交
                 </button>
               </div>
-            )}
+              {!partnerCheck.ok && partnerCheck.reason && (
+                <div className="sanctuary-bond-note">{partnerCheck.reason}</div>
+              )}
+            </div>
+          )}
 
-            {/* 择定名分（唯一道侣 vs 生死挚交） */}
-            {showBondCeremony && (
-              <div className="sanctuary-bond-banner">
-                <div className="sanctuary-bond-title">✦ 情谊既笃 · 择定此生名分</div>
-                <div className="sanctuary-bond-desc">
-                  情深意笃、心结尽解。此刻你可郑重向{def.name}许诺名分（道侣全世唯此一人；生死挚交不限人数，皆享专属雅叙与终局回响）。
-                </div>
-                <div className="sanctuary-bond-actions">
-                  <button
-                    type="button"
-                    className="primary-btn sanctuary-cta-btn"
-                    disabled={!partnerCheck.ok}
-                    title={partnerCheck.reason}
-                    onClick={() =>
-                      applyAction(commitCompanionBond(state, selectedId, 'dao_partner'))
-                    }
-                  >
-                    许以唯一 · 结为道侣
-                  </button>
-                  <button
-                    type="button"
-                    className="ghost-btn sanctuary-cta-btn"
-                    disabled={!swornCheck.ok}
-                    title={swornCheck.reason}
-                    onClick={() =>
-                      applyAction(commitCompanionBond(state, selectedId, 'sworn'))
-                    }
-                  >
-                    肝胆相照 · 结为生死挚交
-                  </button>
-                </div>
-                {!partnerCheck.ok && partnerCheck.reason && (
-                  <div className="sanctuary-bond-note">{partnerCheck.reason}</div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* 最近一次互动剧情回放 */}
           {lastResult && (
             <div className="sanctuary-vignette" role="status">
               <div className="sanctuary-vignette-head">
@@ -411,7 +391,6 @@ export const CompanionSanctuary: React.FC<CompanionSanctuaryProps> = ({
             </div>
           )}
 
-          {/* 雅阁四项子页 */}
           <div className="sanctuary-subtabs" role="tablist" aria-label="仙缘互动功能">
             <button
               type="button"
@@ -454,7 +433,7 @@ export const CompanionSanctuary: React.FC<CompanionSanctuaryProps> = ({
           {subTab === 'interact' && (
             <div className="sanctuary-panel-list">
               {activities.length === 0 ? (
-                <div className="card-block card-block-muted" style={{ color: 'var(--text-muted)' }}>
+                <div className="sanctuary-deceased-note">
                   {sanctuaryClosed
                     ? state.endingId
                       ? '此世因果已然落笔，雅阁暂闭，唯余过往尺素与共历编年可览。'
@@ -471,7 +450,7 @@ export const CompanionSanctuary: React.FC<CompanionSanctuaryProps> = ({
                 activities.map((act) => {
                   const canRun = act.available(state);
                   return (
-                    <div className="card-block sanctuary-act-card" key={act.id}>
+                    <div className="card-block" key={act.id}>
                       <div className="card-block-head">
                         <strong>{act.label}</strong>
                         <span
@@ -488,25 +467,25 @@ export const CompanionSanctuary: React.FC<CompanionSanctuaryProps> = ({
                           {act.tag}
                         </span>
                       </div>
-                      <div style={{ fontSize: '0.8125rem', color: 'var(--text-soft)', marginBottom: 10 }}>
-                        {act.subtext}
+                      <div className="overmatch-row">{act.subtext}</div>
+                      <div className="save-row-actions">
+                        <button
+                          type="button"
+                          className="mini-btn"
+                          disabled={!canRun}
+                          onClick={() =>
+                            applyAction(performSanctuaryActivity(state, selectedId, act.id))
+                          }
+                        >
+                          {canRun
+                            ? act.deceasedOnly
+                              ? '焚香祭茶'
+                              : '共叙此刻'
+                            : act.deceasedOnly
+                            ? '本卷已祭'
+                            : '本卷已叙'}
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        className="mini-btn"
-                        disabled={!canRun}
-                        onClick={() =>
-                          applyAction(performSanctuaryActivity(state, selectedId, act.id))
-                        }
-                      >
-                        {canRun
-                          ? act.deceasedOnly
-                            ? '焚香祭茶'
-                            : '共叙此刻'
-                          : act.deceasedOnly
-                          ? '本卷已祭'
-                          : '本卷已叙'}
-                      </button>
                     </div>
                   );
                 })
@@ -517,7 +496,7 @@ export const CompanionSanctuary: React.FC<CompanionSanctuaryProps> = ({
           {subTab === 'gifts' && (
             <div className="sanctuary-panel-list">
               {sanctuaryClosed || deceased || sealed || hostile || suFarewell ? (
-                <div className="card-block card-block-muted" style={{ color: 'var(--text-muted)' }}>
+                <div className="sanctuary-deceased-note">
                   {sanctuaryClosed
                     ? state.endingId
                       ? '此世因果已然落笔，已无须再赠礼信。'
@@ -529,15 +508,15 @@ export const CompanionSanctuary: React.FC<CompanionSanctuaryProps> = ({
                     : '当前关系下无法相赠礼信。'}
                 </div>
               ) : heldGoods.length === 0 ? (
-                <div className="card-block card-block-muted" style={{ color: 'var(--text-muted)' }}>
-                  行囊中暂无坊市货品。可先在各卷坊市购置清心草、前朝残简、金脉灵砂或凝神琥珀等物再来相赠。
+                <div className="sanctuary-deceased-note">
+                  行囊中暂无坊市货品，可于各卷坊市购置后再来相赠。
                 </div>
               ) : (
                 <>
-                  <div style={{ fontSize: '0.78125rem', color: 'var(--text-muted)', marginBottom: 8 }}>
+                  <div className="sanctuary-deceased-note">
                     {giftedThisAct
                       ? `本卷已向${def.name}赠礼一次，待步入新境后再备心意。`
-                      : `每卷可向${def.name}相赠一件坊市货品；投其所好可大幅增进情谊，送其所忌反生隔阂。`}
+                      : `每卷可向${def.name}相赠一件坊市货品。`}
                   </div>
                   <div className="sanctuary-gift-grid">
                     {heldGoods.map(([gid, holding]) => {
@@ -552,7 +531,7 @@ export const CompanionSanctuary: React.FC<CompanionSanctuaryProps> = ({
                           ? '似有所忌'
                           : '寻常之物';
                       return (
-                        <div className="card-block sanctuary-gift-card" key={gid}>
+                        <div className="card-block" key={gid}>
                           <div className="card-block-head">
                             <strong>
                               {good.name} ×{holding.qty}
@@ -571,19 +550,20 @@ export const CompanionSanctuary: React.FC<CompanionSanctuaryProps> = ({
                               </span>
                             )}
                           </div>
-                          <div style={{ fontSize: '0.78125rem', color: 'var(--text-soft)', marginBottom: 8 }}>
-                            {good.desc}
+                          <div className="overmatch-row">{good.desc}</div>
+                          <div className="save-row-actions">
+                            <button
+                              type="button"
+                              className="mini-btn"
+                              disabled={giftedThisAct}
+                              onClick={() =>
+                                applyAction(giveSanctuaryGift(state, selectedId, gid, registry))
+                              }
+                            >
+                              <AppIcon name="gift" />
+                              <span>{giftedThisAct ? '本卷已赠' : `赠予${def.name}`}</span>
+                            </button>
                           </div>
-                          <button
-                            type="button"
-                            className="mini-btn"
-                            disabled={giftedThisAct}
-                            onClick={() =>
-                              applyAction(giveSanctuaryGift(state, selectedId, gid, registry))
-                            }
-                          >
-                            {giftedThisAct ? '本卷已赠' : `赠予${def.name}`}
-                          </button>
                         </div>
                       );
                     })}
@@ -596,7 +576,7 @@ export const CompanionSanctuary: React.FC<CompanionSanctuaryProps> = ({
           {subTab === 'letters' && (
             <div className="sanctuary-panel-list">
               {letters.length === 0 ? (
-                <div className="card-block card-block-muted" style={{ color: 'var(--text-muted)' }}>
+                <div className="sanctuary-deceased-note">
                   {deceased
                     ? '故人已归尘土，生前未曾留下亲笔尺素。'
                     : sealed
@@ -611,13 +591,16 @@ export const CompanionSanctuary: React.FC<CompanionSanctuaryProps> = ({
                     ? '故人已入暮年，此前未留亲笔尺素，请亲赴青州槐阴相见。'
                     : suSeniorAct5
                     ? '故人已届耄耋高龄、远居青州安养，此前未曾留有亲笔尺素。'
-                    : `尚无尺素存留。共赴「知交夜话」或定下道侣、挚交名分后，${def.name}的亲笔书信将珍藏于此。`}
+                    : `尚无尺素存留。共赴「知交夜话」或定下名分后，${def.name}的亲笔书信将珍藏于此。`}
                 </div>
               ) : (
                 [...letters].reverse().map((letter) => (
-                  <article className="card-block sanctuary-letter-card" key={letter.id}>
+                  <article className="card-block" key={letter.id}>
                     <div className="card-block-head">
-                      <strong>✉ {letter.title}</strong>
+                      <strong className="sanctuary-letter-title">
+                        <AppIcon name="envelope" />
+                        <span>{letter.title}</span>
+                      </strong>
                       <span className="save-time">长明{toChineseYearNumber(letter.year)}年</span>
                     </div>
                     <p className="sanctuary-letter-body">{letter.body}</p>
@@ -630,19 +613,13 @@ export const CompanionSanctuary: React.FC<CompanionSanctuaryProps> = ({
           {subTab === 'chronicle' && (
             <div className="sanctuary-panel-list">
               {comp.chronicle.length === 0 ? (
-                <div className="card-block card-block-muted" style={{ color: 'var(--text-muted)' }}>
-                  尚无共历编年。
-                </div>
+                <div className="sanctuary-deceased-note">尚无共历编年。</div>
               ) : (
-                <div className="card-block">
-                  <ul className="chronicle-list" style={{ marginTop: 0 }}>
-                    {[...comp.chronicle].reverse().map((entry, idx) => (
-                      <li key={idx} style={{ marginBottom: 6 }}>
-                        {entry}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                <ul className="chronicle-list">
+                  {[...comp.chronicle].reverse().map((entry, idx) => (
+                    <li key={idx}>{entry}</li>
+                  ))}
+                </ul>
               )}
             </div>
           )}

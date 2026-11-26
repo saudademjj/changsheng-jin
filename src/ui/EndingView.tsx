@@ -8,6 +8,7 @@ import {
   isCompanionSealed,
   isDaoPartner,
 } from '../engine/systems';
+import { AppIcon } from './Icon';
 
 interface EndingViewProps {
   state: GameState;
@@ -83,9 +84,6 @@ export const EndingView: React.FC<EndingViewProps> = ({
 
   return (
     <main className="ending-container">
-      <div className="ending-badge">
-        {formatEndingBadge(ending.subtitle, ending.tier)}
-      </div>
       <h1 className="ending-title" ref={titleRef} tabIndex={-1}>
         {ending.title}
       </h1>
@@ -129,16 +127,20 @@ export const EndingView: React.FC<EndingViewProps> = ({
 
       <div className="ending-actions">
         <button type="button" className="primary-btn" onClick={onRewindSaves}>
-          回溯命盘，重择前路
+          <AppIcon name="archive" />
+          <span>回溯命盘</span>
         </button>
         <button type="button" className="ghost-btn" onClick={onStartNewRun}>
-          重开新世（探他路故人）
+          <AppIcon name="arrowRight" />
+          <span>重开新世</span>
         </button>
         <button type="button" className="ghost-btn" onClick={onOpenMeta}>
-          查阅万象志真相
+          <AppIcon name="bookOpen" />
+          <span>查阅万象志</span>
         </button>
         <button type="button" className="ghost-btn" onClick={onGoTitle}>
-          返回封面
+          <AppIcon name="home" />
+          <span>返回封面</span>
         </button>
       </div>
     </main>
