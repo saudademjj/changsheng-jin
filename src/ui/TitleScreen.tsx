@@ -53,7 +53,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
         </button>
       </div>
 
-      <div className="title-seal">完整六幕 · 互动修仙文字志</div>
+      <div className="title-seal">六卷长篇 · 仙途问道志</div>
       <h1 className="title-heading">长生烬</h1>
       <p className="title-sub">
         <span>长明三千年</span>
@@ -92,10 +92,10 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
       <div className="title-meta-foot">
         <span>累计轮回 {meta.totalRuns} 世</span>
         <span>
-          已收集天机真相 {meta.unlockedTruthClues.length}/{totalTruthClues}
+          已窥天机 {meta.unlockedTruthClues.length}/{totalTruthClues}
         </span>
         <span>
-          已解锁结局 {meta.unlockedEndings.length}/{totalEndings}
+          已历终局 {meta.unlockedEndings.length}/{totalEndings}
         </span>
       </div>
     </main>

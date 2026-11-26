@@ -5,6 +5,7 @@ import {
   MarketGoodDefinition,
   MarketState,
 } from './types';
+import { isMajorArcMissed } from './systems';
 
 function clampIndex(v: number): number {
   return Math.round(Math.max(0.55, Math.min(2.25, v)) * 100) / 100;
@@ -62,7 +63,11 @@ export function recalculateMarketPulse(state: GameState): MarketState {
       artifact += 0.35;
       rumors.push('仙盟查封血丹暗坊，正统灵丹顿时紧俏，护身符箓随之走高');
     }
-    if (state.flags.arc_sword_trial_active) {
+    if (
+      state.flags.arc_sword_trial_active &&
+      !state.completedThreads.includes('thread_sword_trial') &&
+      !isMajorArcMissed(state, 'act2', 'thread_sword_trial')
+    ) {
       artifact += 0.55;
       rumors.push('青云试剑在即，外门散修争抢破障符与护身法器');
     }
@@ -72,11 +77,11 @@ export function recalculateMarketPulse(state: GameState): MarketState {
       rumors.push('青州古脉异动传开，古碑拓片与上界遗物遭隐世大户暗中扫货');
     }
     if (state.flags.xie_market_tip && state.companions.xie_wujiu.met && !xieHostile) {
-      rumors.push('百宝斋私信提示：筑基期临近的散修都在囤积破境丹药，趁低吸纳稳赚不赔');
+      rumors.push('百宝斋私信提示：筑基期临近的散修都在囤积破境丹药，趁贱囤货稳赚不赔');
     } else if (state.flags.qinglan_market_report) {
-      rumors.push('听风暗桩与牙行密报：临近筑基的散修都在囤积破境丹药与古碑拓片，低吸高抛正当时');
+      rumors.push('听风暗桩与牙行密报：临近筑基的散修都在囤积破境丹药与古碑拓片，贱买贵卖正当时');
     } else if (state.flags.tavern_market_tip) {
-      rumors.push('醉仙楼商客风声：临近筑基的散修都在囤积破境丹药与古碑拓片，低吸高抛正当时');
+      rumors.push('醉仙楼商客风声：临近筑基的散修都在囤积破境丹药与古碑拓片，贱买贵卖正当时');
     }
   }
 
@@ -107,7 +112,7 @@ export function recalculateMarketPulse(state: GameState): MarketState {
       elixir -= 0.35;
       curio += 0.65;
       artifact -= 0.25;
-      rumors.push('天机商行分号连环崩盘，囤积灵药与矿砂涌入散市回落，古阵秘宝反而水涨船高');
+      rumors.push('天机商行分号连环倾覆，囤积灵药与矿砂涌入散市回落，古阵秘宝反而水涨船高');
     } else {
       artifact += 0.3;
       curio += 0.25;

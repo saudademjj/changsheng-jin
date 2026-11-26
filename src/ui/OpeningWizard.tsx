@@ -83,7 +83,7 @@ export const OpeningWizard: React.FC<OpeningWizardProps> = ({
         </h1>
         <p className="wizard-desc">
           {step === 1
-            ? '长明三千零一十二年春，十六岁的你正立于青岚界域的风浪之前。四位故人皆不限性别自由结缘。'
+            ? '长明三千零一十二年春，十六岁的你正立于青岚界域的风浪之前。尘世漫漫，此去所逢四位故人，缘法皆由心而定。'
             : step === 2
             ? '从八桩旧事中任选两项，既定开局机缘，也埋下半生伏笔与故人缘法。'
             : '这颗最初的道心将在未来数十年的岁月与心魔中，反复叩问你是否仍记得来路。'}
@@ -265,7 +265,7 @@ export const OpeningWizard: React.FC<OpeningWizardProps> = ({
             }
           >
             {hasActiveRun
-              ? '开启新世（原进度可于命盘回溯）'
+              ? '再启新世（前尘可于命盘回溯）'
               : '步入长明三千零一十二年'}
           </button>
         )}

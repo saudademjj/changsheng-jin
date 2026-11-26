@@ -41,6 +41,9 @@ export const MarketPanel: React.FC<MarketPanelProps> = ({
       !offer.when ||
       offer.when(state)
   );
+  const hasBuyableRelics = visibleRelics.some(
+    (offer) => !state.relics.includes(offer.relicId)
+  );
 
   const isLiquidationOnly = state.act === 'act5' || state.act === 'act6';
 
@@ -126,13 +129,15 @@ export const MarketPanel: React.FC<MarketPanelProps> = ({
 
       <div className="market-subheading">
         {isLiquidationOnly
-          ? '末法清仓变现（行至终章，仅可卖出存货换取灵石购置重宝）'
+          ? '末法出清余货（行至终卷，仅可脱手存货易石以备重宝）'
           : '行市货品（可趁大势起伏低买高卖）'}
       </div>
       {isLiquidationOnly ? (
         heldGoodsForLiquidation.length === 0 ? (
           <div className="market-empty-note">
-            行囊已无余货待沽，可径直选购下方稀缺奇物。
+            {hasBuyableRelics
+              ? '行囊已无余货待沽，可径直选购下方稀缺奇物。'
+              : '行囊已无余货待沽，本坊奇物亦已悉数易主。'}
           </div>
         ) : (
           <div>
@@ -175,10 +180,10 @@ export const MarketPanel: React.FC<MarketPanelProps> = ({
                           }
                         >
                           {unitDelta > 0
-                            ? ` +${unitDelta}/件`
+                            ? ` · 盈 ${unitDelta}`
                             : unitDelta < 0
-                            ? ` ${unitDelta}/件`
-                            : ' 持平'}
+                            ? ` · 折 ${Math.abs(unitDelta)}`
+                            : ' · 持平'}
                         </span>
                       </span>
                     </div>
@@ -199,7 +204,7 @@ export const MarketPanel: React.FC<MarketPanelProps> = ({
                       aria-label={`全部卖出${good.name}`}
                       onClick={() => handleSellGood(id, holding.qty)}
                     >
-                      全卖
+                      悉数脱手
                     </button>
                   </div>
                 </div>
@@ -244,17 +249,17 @@ export const MarketPanel: React.FC<MarketPanelProps> = ({
                           }
                         >
                           {unitDelta > 0
-                            ? ` +${unitDelta}/件`
+                            ? ` · 盈 ${unitDelta}`
                             : unitDelta < 0
-                            ? ` ${unitDelta}/件`
-                            : ' 持平'}
+                            ? ` · 折 ${Math.abs(unitDelta)}`
+                            : ' · 持平'}
                         </span>
                       </span>
                     )}
                   </div>
                   <div className="market-item-desc">{good.desc}</div>
                 </div>
-                <div className="market-row-controls">
+                <div className="market-row-controls market-row-controls-trade">
                   <button
                     type="button"
                     className="mini-btn"
@@ -282,7 +287,7 @@ export const MarketPanel: React.FC<MarketPanelProps> = ({
                       handleBuyGood(id, Math.floor(state.spiritStones / price))
                     }
                   >
-                    买满
+                    尽数购入
                   </button>
                   <button
                     type="button"
@@ -300,7 +305,7 @@ export const MarketPanel: React.FC<MarketPanelProps> = ({
                     disabled={heldQty <= 0}
                     onClick={() => handleSellGood(id, heldQty)}
                   >
-                    全卖
+                    悉数脱手
                   </button>
                 </div>
               </div>
@@ -312,7 +317,7 @@ export const MarketPanel: React.FC<MarketPanelProps> = ({
       {legacyHoldingIds.length > 0 && (
         <>
           <div className="market-subheading">
-            随身旧货清仓（本坊不新进此货，仍可按当前行市变现）
+            随身旧货脱手（本坊不新进此货，仍可按当前行市易石）
           </div>
           <div>
             {legacyHoldingIds.map((id) => {
@@ -354,10 +359,10 @@ export const MarketPanel: React.FC<MarketPanelProps> = ({
                           }
                         >
                           {unitDelta > 0
-                            ? ` +${unitDelta}/件`
+                            ? ` · 盈 ${unitDelta}`
                             : unitDelta < 0
-                            ? ` ${unitDelta}/件`
-                            : ' 持平'}
+                            ? ` · 折 ${Math.abs(unitDelta)}`
+                            : ' · 持平'}
                         </span>
                       </span>
                     </div>
@@ -378,7 +383,7 @@ export const MarketPanel: React.FC<MarketPanelProps> = ({
                       aria-label={`全部卖出${good.name}`}
                       onClick={() => handleSellGood(id, holding.qty)}
                     >
-                      全卖
+                      悉数脱手
                     </button>
                   </div>
                 </div>
@@ -395,7 +400,7 @@ export const MarketPanel: React.FC<MarketPanelProps> = ({
           </div>
           {visibleRelics.length === 0 ? (
             <div className="market-empty-note">
-              本坊压箱奇物皆已归你囊中，坊主再无余货可售。
+              本坊镇阁奇物皆已归你囊中，坊主再无余货可售。
             </div>
           ) : (
             <div>
@@ -444,7 +449,7 @@ export const MarketPanel: React.FC<MarketPanelProps> = ({
                         {relic.desc} {relic.storyUseHint}
                       </div>
                     </div>
-                    <div className="market-row-controls">
+                    <div className="market-row-controls market-row-controls-relic">
                       <button
                         type="button"
                         className="mini-btn"

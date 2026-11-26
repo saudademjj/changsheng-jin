@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { CONTENT_REGISTRY } from './content';
-import { GameState, PlayerProfile, SaveRecord } from './engine/types';
+import { CompanionId, GameState, PlayerProfile, SaveRecord } from './engine/types';
 import { advanceChoice, commitTransition, createInitialState } from './engine/scheduler';
 import {
   clearActiveRun,
@@ -35,6 +35,7 @@ export const App: React.FC = () => {
   );
   const [screen, setScreen] = useState<ScreenMode>('title');
   const [activeDrawer, setActiveDrawer] = useState<DrawerTab>(null);
+  const [selectedSanctuaryId, setSelectedSanctuaryId] = useState<CompanionId | null>(null);
   const [loadNonce, setLoadNonce] = useState(0);
   const [checkpoints, setCheckpoints] = useState<SaveRecord[]>(() =>
     loadCheckpoints(undefined, CONTENT_REGISTRY)
@@ -357,6 +358,7 @@ export const App: React.FC = () => {
                 onSelectChoice={handleSelectChoice}
                 onCommitTransition={handleCommitTransition}
                 onUpdateState={handleDirectStateUpdate}
+                onOpenWorld={() => setActiveDrawer('world')}
               />
             )}
           </>
@@ -401,6 +403,12 @@ export const App: React.FC = () => {
         manualSlots={manualSlots}
         tianjiInsight={prefs.tianjiInsight}
         instantText={prefs.instantText}
+        selectedSanctuaryId={selectedSanctuaryId}
+        onOpenSanctuary={(cid) => {
+          if (cid) setSelectedSanctuaryId(cid);
+          setActiveDrawer('sanctuary');
+        }}
+        onUpdateState={handleDirectStateUpdate}
         onToggleInstantText={toggleInstantText}
         onClose={handleCloseDrawer}
         onCreateManualSave={(label) => {

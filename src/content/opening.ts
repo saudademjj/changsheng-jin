@@ -119,7 +119,7 @@ export const OPENING_EVENTS: OpeningEventDefinition[] = [
   {
     id: 'ev_broken_engagement',
     name: '退婚庚帖',
-    tagline: '青岚豪门一纸退书，断尽旧日体面',
+    tagline: '青岚小族一纸退书，断尽旧日体面',
     desc: '曾定下口头婚约的修仙小族嫌你微末落魄，派管事甩来一纸退婚庚帖与三十块灵石作为打发。这口气，你咽不下。',
     effect: {
       addTags: ['broken_engagement'],
@@ -194,7 +194,7 @@ export const DAO_HEARTS: DaoHeartDefinition[] = [
     id: 'seek_fortune',
     name: '求逍遥富贵',
     motto: '清苦修仙太累，不如掌财借势、快意人间。',
-    desc: '仙途险恶，灵石才是最大的护身符。先富起来，再谈什么问鼎大道。',
+    desc: '仙途险恶，灵石才是最大的护身符。先攒足灵石站稳脚跟，再谈什么问鼎大道。',
     effect: {
       spiritStones: 50,
       renown: 5,

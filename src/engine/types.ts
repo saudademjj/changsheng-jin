@@ -29,6 +29,15 @@ export type CompanionStance =
   | 'bonded'
   | 'estranged';
 
+export type CompanionBondType = 'none' | 'sworn' | 'dao_partner';
+
+export interface CompanionLetter {
+  id: string;
+  year: number;
+  title: string;
+  body: string;
+}
+
 export type MarketCategory = 'elixir' | 'artifact' | 'curio';
 
 export interface PlayerProfile {
@@ -46,9 +55,18 @@ export interface CompanionRuntimeState {
   lastSeenAgeMonths?: number;
   affection: number;
   stance: CompanionStance;
-  /** 叙事阶段留痕（仅写不参与分支门控，门控统一以 stance / affection / flags 为准） */
+  /** 叙事阶段留痕（仅写不参与分支门控，门控统一以 stance / affection / flags / bondType 为准） */
   stage: number;
   chronicle: string[];
+  /** 是否已故（如苏知微辞世） */
+  deceased?: boolean;
+  deceasedYear?: number;
+  /** 高阶关系定性：无 / 生死挚交 / 唯一结契道侣 */
+  bondType?: CompanionBondType;
+  /** 里程碑阶段：0=未启心结，1=已完成知交深谈，2=已完成结契（道侣或生死挚交） */
+  milestoneStage?: number;
+  /** 仙缘尺素来信 */
+  letters?: CompanionLetter[];
 }
 
 export interface MarketHolding {
@@ -105,6 +123,10 @@ export interface GameState {
   relics: string[];
   market: MarketState;
   companions: Record<CompanionId, CompanionRuntimeState>;
+  /** 唯一结契道侣 ID（全世至多一位） */
+  daoPartnerId?: CompanionId;
+  /** 各幕已投入的重大大势主线 ID（每幕天时席位上限 2 条） */
+  actMajorArcs?: Record<string, string[]>;
   act: ActId;
   actBeat: number;
   totalActions: number;
@@ -132,6 +154,11 @@ export interface CompanionUpdate {
   chronicle?: string;
   chronicleAtStartYear?: boolean;
   markSeen?: boolean;
+  markDeceased?: boolean;
+  setBondType?: CompanionBondType;
+  setMilestoneStage?: number;
+  addLetter?: { id: string; title: string; body: string };
+  silentNotice?: boolean;
 }
 
 export interface ChoiceEffect {
@@ -155,6 +182,9 @@ export interface ChoiceEffect {
   setFlags?: Record<string, boolean | number | string>;
   activateThreads?: string[];
   completeThreads?: string[];
+  /** 占用本幕天时大势席位（每幕上限 2 席，占满后未介入大势自行演进） */
+  commitMajorArc?: { act: ActId; threadId: string };
+  setDaoPartnerId?: CompanionId;
   companionUpdates?: Partial<Record<CompanionId, CompanionUpdate>>;
   notice?: string | string[];
   logSummary?: string;
@@ -206,7 +236,7 @@ export type ParagraphBlock =
   | ((state: GameState) => string | string[] | null)
   | {
       when: (state: GameState) => boolean;
-      text: string | ((state: GameState) => string | string[]);
+      text: string | string[] | ((state: GameState) => string | string[]);
     };
 
 export interface MarketSceneConfig {
@@ -277,10 +307,13 @@ export interface MarketGoodDefinition {
   desc: string;
 }
 
+export type TruthClueStage = 'anomaly' | 'verification' | 'testimony' | 'synthesis';
+
 export interface TruthClueDefinition {
   id: string;
   title: string;
   act: ActId;
+  stage?: TruthClueStage;
   sourceLabel: string;
   excerpt: string;
 }

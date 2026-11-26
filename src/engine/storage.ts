@@ -180,7 +180,16 @@ function toStringArray(v: unknown): string[] {
 
 function normalizeCompanion(raw: unknown): CompanionRuntimeState {
   if (!isPlainObject(raw)) {
-    return { met: false, affection: 0, stance: 'unmet', stage: 0, chronicle: [] };
+    return {
+      met: false,
+      affection: 0,
+      stance: 'unmet',
+      stage: 0,
+      chronicle: [],
+      bondType: 'none',
+      milestoneStage: 0,
+      letters: [],
+    };
   }
   const met = Boolean(raw.met);
   const stanceRaw = raw.stance;
@@ -189,6 +198,30 @@ function normalizeCompanion(raw: unknown): CompanionRuntimeState {
     : typeof stanceRaw === 'string' && VALID_STANCES.has(stanceRaw as CompanionStance)
     ? (stanceRaw as CompanionStance)
     : 'stranger';
+  const bondRaw = raw.bondType;
+  const bondType: CompanionRuntimeState['bondType'] =
+    bondRaw === 'dao_partner' || bondRaw === 'sworn' || bondRaw === 'none'
+      ? bondRaw
+      : 'none';
+  const letters: NonNullable<CompanionRuntimeState['letters']> = [];
+  if (Array.isArray(raw.letters)) {
+    for (const item of raw.letters) {
+      if (
+        isPlainObject(item) &&
+        typeof item.id === 'string' &&
+        isFiniteNum(item.year) &&
+        typeof item.title === 'string' &&
+        typeof item.body === 'string'
+      ) {
+        letters.push({
+          id: item.id.slice(0, 60),
+          year: clampInt(item.year, 1, 99999),
+          title: item.title.slice(0, 80),
+          body: item.body.slice(0, 500),
+        });
+      }
+    }
+  }
   return {
     met,
     metAtAgeMonths: isFiniteNum(raw.metAtAgeMonths)
@@ -205,6 +238,15 @@ function normalizeCompanion(raw: unknown): CompanionRuntimeState {
     chronicle: toStringArray(raw.chronicle)
       .slice(-100)
       .map((s) => s.slice(0, 260)),
+    deceased: Boolean(raw.deceased),
+    deceasedYear: isFiniteNum(raw.deceasedYear)
+      ? clampInt(raw.deceasedYear, 1, 99999)
+      : undefined,
+    bondType,
+    milestoneStage: isFiniteNum(raw.milestoneStage)
+      ? clampInt(raw.milestoneStage, 0, 4)
+      : 0,
+    letters: letters.slice(-20),
   };
 }
 
@@ -332,6 +374,24 @@ export function validateAndNormalizeState(
     companions[cid] = normalizeCompanion(
       hasOwnKey(companionsRaw, cid) ? companionsRaw[cid] : undefined
     );
+  }
+  if (flags.su_zhiwei_passed && !companions.su_zhiwei.deceased) {
+    companions.su_zhiwei.deceased = true;
+  }
+
+  const daoPartnerIdRaw = raw.daoPartnerId;
+  const daoPartnerId: CompanionId | undefined =
+    typeof daoPartnerIdRaw === 'string' &&
+    COMPANION_IDS.includes(daoPartnerIdRaw as CompanionId)
+      ? (daoPartnerIdRaw as CompanionId)
+      : COMPANION_IDS.find((cid) => companions[cid].bondType === 'dao_partner');
+
+  const actMajorArcs: Record<string, string[]> = {};
+  if (isPlainObject(raw.actMajorArcs)) {
+    for (const [k, v] of Object.entries(raw.actMajorArcs)) {
+      if (FORBIDDEN_KEYS.has(k)) continue;
+      actMajorArcs[k] = Array.from(new Set(toStringArray(v)));
+    }
   }
 
   const historyLog: HistoryEntry[] = [];
@@ -501,6 +561,8 @@ export function validateAndNormalizeState(
           : '',
     },
     companions,
+    daoPartnerId,
+    actMajorArcs,
     act: normalizedAct,
     actBeat: isFiniteNum(raw.actBeat) ? clampInt(raw.actBeat, 0, 10000) : 0,
     totalActions: isFiniteNum(raw.totalActions)

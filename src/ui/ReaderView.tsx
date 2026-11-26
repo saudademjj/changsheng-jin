@@ -8,6 +8,12 @@ import {
 } from '../engine/types';
 import { resolveParagraphs, resolveTextValue } from '../engine/template';
 import { getResolvedChoices } from '../engine/scheduler';
+import {
+  ACT_ORDER,
+  getActProgressSnapshot,
+  getActTransitionEcho,
+  getWorldClimateSnapshot,
+} from '../engine/worldview';
 import { MarketPanel } from './MarketPanel';
 
 const CATEGORY_ORDER: Array<{ key: ChoiceCategory; title: string; hint: string }> = [
@@ -31,6 +37,7 @@ interface ReaderViewProps {
   onSelectChoice: (choiceId: string) => void;
   onCommitTransition: () => void;
   onUpdateState: (next: GameState) => void;
+  onOpenWorld?: () => void;
 }
 
 const CN_NUM = ['一', '二', '三', '四', '五', '六', '七', '八', '九'];
@@ -56,11 +63,24 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
   onSelectChoice,
   onCommitTransition,
   onUpdateState,
+  onOpenWorld,
 }) => {
   const pending = state.pendingTransition;
   const sceneTitleRef = useRef<HTMLHeadingElement | null>(null);
   const outcomeAnchorRef = useRef<HTMLDivElement | null>(null);
   const continueBtnRef = useRef<HTMLButtonElement | null>(null);
+  const actEcho = useMemo(
+    () => (pending ? null : getActTransitionEcho(state, scene.id, registry)),
+    [pending, state, scene.id, registry]
+  );
+  const hubProgress = useMemo(
+    () => (scene.isHub ? getActProgressSnapshot(state, tianjiInsight) : null),
+    [scene.isHub, state, tianjiInsight]
+  );
+  const worldClimate = useMemo(
+    () => (scene.isHub ? getWorldClimateSnapshot(state) : null),
+    [scene.isHub, state]
+  );
 
   const paragraphs = useMemo(
     () =>
@@ -288,6 +308,18 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
         </h1>
       </header>
 
+      {actEcho && (
+        <aside className="act-echo-card" aria-label="前尘余波与本卷局势">
+          <div className="act-echo-banner">{actEcho.actBanner}</div>
+          <div className="act-echo-title">{actEcho.title}</div>
+          <ul className="act-echo-list">
+            {actEcho.bullets.map((line, i) => (
+              <li key={i}>{line}</li>
+            ))}
+          </ul>
+        </aside>
+      )}
+
       <article
         className={`prose-flow ${pending ? 'prose-settled' : ''}`}
         onClick={() => {
@@ -325,13 +357,91 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
           className={`choices-section ${scene.isHub ? 'hub-board' : ''}`}
           aria-label={scene.isHub ? '行迹谋划台' : '你的抉择'}
         >
+          {scene.isHub && hubProgress && worldClimate && (
+            <div className="hub-progress-card" aria-label="本卷行迹脉络">
+              <div className="hub-progress-top">
+                <span className="hub-progress-title">
+                  {hubProgress.actMeta.shortLabel} · {hubProgress.actMeta.title}（
+                  {hubProgress.actMeta.region}）
+                </span>
+                <div className="act-stepper" aria-label={`全六卷进程：当前第 ${hubProgress.actOrder} 卷`}>
+                  {ACT_ORDER.map((aid, idx) => {
+                    const ord = idx + 1;
+                    const cls =
+                      ord < hubProgress.actOrder
+                        ? 'done'
+                        : ord === hubProgress.actOrder
+                        ? 'current'
+                        : '';
+                    return (
+                      <span key={aid} className={`act-step-dot ${cls}`}>
+                        {CN_NUM[idx]}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="hub-progress-meta">
+                <div>
+                  <strong>破境机缘 · {hubProgress.breakthroughGoalLabel}：</strong>
+                  {hubProgress.breakthroughProgressText}
+                </div>
+                {hubProgress.hasMajorSlotLimit && (
+                  <div>
+                    <strong>本卷天时席位：</strong>
+                    已深耕 {hubProgress.majorSlotsUsed} / {hubProgress.majorSlotsTotal} 席，余{' '}
+                    {hubProgress.majorSlotsRemaining} 席
+                  </div>
+                )}
+              </div>
+
+              {hubProgress.majorArcs.length > 0 && (
+                <div className="hub-arc-chips">
+                  {hubProgress.majorArcs.map((arc) => {
+                    const prefix =
+                      arc.status === 'completed'
+                        ? '✓ '
+                        : arc.status === 'in_progress'
+                        ? '● '
+                        : arc.status === 'missed'
+                        ? '× '
+                        : '○ ';
+                    return (
+                      <span
+                        key={arc.threadId}
+                        className={`hub-arc-chip ${arc.status}`}
+                      >
+                        {prefix}
+                        {arc.label}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div className="hub-progress-foot">
+                <span>九州灵脉：{worldClimate.veinLabel}</span>
+                {onOpenWorld && (
+                  <button type="button" className="mini-btn" onClick={onOpenWorld}>
+                    查六方势力与九州世局 →
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
           {scene.isHub && choices.some((c) => c.category) ? (
             <>
               <div className="choices-caption">
                 行迹谋划台 · 每一季去向由你定夺
-                <span className="desktop-hotkey-hint">
-                  （快捷键 1-{Math.min(9, choices.length)}）
-                </span>
+                {choices.length > 0 && (
+                  <span className="desktop-hotkey-hint">
+                    {choices.length === 1
+                      ? '（快捷键 1）'
+                      : `（快捷键 1-${Math.min(9, choices.length)}）`}
+                  </span>
+                )}
               </div>
               {(() => {
                 let runningIdx = 0;
@@ -420,9 +530,13 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
             <>
               <div className="choices-caption">
                 择路而行
-                <span className="desktop-hotkey-hint">
-                  （可按数字键 1-{Math.min(9, choices.length)} 快速抉择）
-                </span>
+                {choices.length > 0 && (
+                  <span className="desktop-hotkey-hint">
+                    {choices.length === 1
+                      ? '（可按数字键 1 快速抉择）'
+                      : `（可按数字键 1-${Math.min(9, choices.length)} 快速抉择）`}
+                  </span>
+                )}
               </div>
               <div className="choice-list">
                 {choices.map((choice, idx) => (

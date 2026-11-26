@@ -96,8 +96,8 @@ export const ACT1_SCENES: Record<string, SceneDefinition> = {
           logSummary: '自翠微崖濒死散修处得引气诀与五十五块灵石，果断离山入世。',
         },
         outcome: [
-          '那散修咽下最后一口气时，眼睛仍死死望着青岚城方向。你屏住呼吸替他合上双目，除了粗布囊里的引气诀，又从他腰间暗袋摸出额外三十五块品相极佳的灵石。',
-          '怕引来追杀他的仇家，你只就近搬来碎石与落叶将尸身遮掩妥当，便趁着暮雾未散急步下山。怀里沉甸甸的灵石让你第一次明白，活下来、变强比什么虚礼都要紧。',
+          '那散修咽下最后一口气时，眼睛仍死死望着青岚城方向。你屏住呼吸替他合上双目，除了粗布囊里的二十块碎灵石与引气诀，又从他腰间暗袋摸出额外三十五块品相极佳的灵石。',
+          '怕引来追杀他的仇家，你只就近搬来碎石与落叶将尸身遮掩妥当，便趁着暮雾未散急步下山。怀里沉甸甸的灵石隔着粗布衣襟发凉，远方的青岚城灯火已隐约可见。',
         ],
         outcomeContinueLabel: getNextOpeningStepHint,
         next: resolveFirstOpeningEventScene,
@@ -140,8 +140,8 @@ export const ACT1_SCENES: Record<string, SceneDefinition> = {
       },
       {
         id: 'sell_estate',
-        label: '干脆典尽荒宅与旧印，换成实打实的灵石',
-        subtext: '死物守不住长生，唯有灵石能买来踏入仙门的船票。',
+        label: '干脆典尽荒宅与旧印，换成实实在在的灵石',
+        subtext: '死物守不住长生，唯有灵石能买来踏入仙门的门径。',
         insightTags: ['大量灵石', '务实入世'],
         effect: {
           timeMonths: 1,
@@ -209,7 +209,7 @@ export const ACT1_SCENES: Record<string, SceneDefinition> = {
         },
         outcome: [
           '你死死按捺住扑出去的冲动。果然不过十息，方才那人便骂骂咧咧地折回来摸走了泥里的灵石袋，却漏看了滚进砖缝深处的那枚暗青玉简。',
-          '待巷口彻底归于寂静，你才不紧不慢地拾起玉简。坊市里活得久的人从不贪小利。凭着这枚引气玉简与刚刚听来的行情风声，你终于有了跳出泥淖的资本。',
+          '待巷口彻底归于寂静，你才不紧不慢地拾起玉简。坊市里活得久的人从不贪小利。凭着这枚引气玉简与刚刚听来的行情风声，你终于有了跳出泥淖的本钱。',
         ],
         outcomeContinueLabel: getNextOpeningStepHint,
         next: resolveFirstOpeningEventScene,
@@ -311,8 +311,8 @@ export const ACT1_SCENES: Record<string, SceneDefinition> = {
           '识海静默了一瞬，随即响起一声低沉短笑：“有点骨头，不像个软脚虾。记住，本座苍溟。如今我残魂虚弱，夺不了你的舍，倒还要借你的眼去看看如今这方天地变成什么鬼样子。且同行一程罢。”',
           (s) =>
             s.tags.includes('origin_orphan')
-              ? '残烛重新摇曳起昏黄火光，断玉归于微温。亭外雨声渐歇，天亮后，你带着识海里这位深不可测的房客起身折返青岚城。'
-              : '油灯重新摇曳起昏黄火光，断玉归于微温。窗外雨声渐歇，天亮后，你带着识海里这位深不可测的房客继续启程。',
+              ? '残烛重新摇曳起昏黄火光，断玉归于微温。亭外雨声渐歇，天亮后，你带着识海里这位深不可测的古魂起身折返青岚城。'
+              : '油灯重新摇曳起昏黄火光，断玉归于微温。窗外雨声渐歇，天亮后，你带着识海里这位深不可测的古魂继续启程。',
         ],
         outcomeContinueLabel: getNextOpeningStepHint,
         next: resolveFirstOpeningEventScene,
@@ -470,10 +470,13 @@ export const ACT1_SCENES: Record<string, SceneDefinition> = {
         },
         outcome: [
           '谢无咎闻言一挑眉，旋即大笑出声，随手将一块沉甸甸的乌黑铁令抛到你怀里：“年纪不大，胃口和眼光倒都不小！寻常散修见了现灵石早就走不动道了。”',
-          '他起身替你拉开木窗，窗外正是青岚城灯火通明的灵市轮廓：“拿着这块令，今后在青岚买奇物报我名号一律八五折。对了，最近暗市里新冒出来一种血色丹丸，便宜得反常，{{honorific}}若想活命，可别轻易往嘴里送。”',
+          '他起身替你拉开木窗，窗外正是青岚城灯火通明的灵市轮廓：“拿着这块令，今后在青岚买奇物报我名号一律折让一成半。对了，最近暗市里新冒出来一种血色丹丸，便宜得反常，{{honorific}}若想活命，可别轻易往嘴里送。”',
           '走下茶坊木梯时，你摩挲着冰凉的玄铁令，知道自己已在青岚最隐秘的圈子里撕开了一道口子。',
         ],
-        outcomeContinueLabel: getNextOpeningStepHint,
+        outcomeContinueLabel: (s) =>
+          s.tags.includes('origin_orphan')
+            ? '穿过熟稔水巷，回到青岚街市'
+            : '走出子夜茶坊，步入青岚灵石坊街',
         next: resolveFirstOpeningEventScene,
       },
       {
@@ -499,7 +502,10 @@ export const ACT1_SCENES: Record<string, SceneDefinition> = {
           '谢无咎也不啰嗦，拍了拍手，屏风后立刻转出账房奉上一只沉甸甸的鹿皮灵石袋。一百二十块下品灵石在烛火下泛着柔和清光，足够寻常散修苦攒三四年。',
           '“爽快！银货两讫，最不伤和气。”他摇扇送你到楼梯口，临别意味深长地添了一句，“不过青岚很快就要起风了，{{honorific}}揣着这笔钱去南市转转，说不定我们很快还会做第二笔生意。”',
         ],
-        outcomeContinueLabel: getNextOpeningStepHint,
+        outcomeContinueLabel: (s) =>
+          s.tags.includes('origin_orphan')
+            ? '穿过熟稔水巷，回到青岚街市'
+            : '走出子夜茶坊，步入青岚灵石坊街',
         next: resolveFirstOpeningEventScene,
       },
     ],
@@ -744,7 +750,7 @@ export const ACT1_SCENES: Record<string, SceneDefinition> = {
         category: 'market',
         label: '前往青岚南市查看行市牌价，交易货品与奇物',
         subtext: '看行情不耗光阴，可低买高卖清心草与破障符，或购下【残缺聚灵阵盘】。',
-        insightTags: ['动态坊市交易', '看价零耗时'],
+        insightTags: ['坊市行商', '看价不耗光阴'],
         next: 'act1_first_market',
       },
       {
@@ -759,7 +765,7 @@ export const ACT1_SCENES: Record<string, SceneDefinition> = {
             reason: '青岚长街近来的风声已打探详尽',
           },
         },
-        insightTags: ['情报与随机奇遇', '此间限2次'],
+        insightTags: ['打探风声与奇遇', '此间限2次'],
         next: 'act1_action_intel',
       },
       {
@@ -778,7 +784,7 @@ export const ACT1_SCENES: Record<string, SceneDefinition> = {
           s.companions.shen_qingshuang.met ||
           Boolean(s.flags.shen_invited_player) ||
           s.companions.cang_ming.met,
-        insightTags: ['零耗时择访', '深化初识情谊'],
+        insightTags: ['不耗光阴', '深化初识情谊'],
         next: 'act1_companion_visit',
       },
       {
@@ -805,7 +811,7 @@ export const ACT1_SCENES: Record<string, SceneDefinition> = {
     market: {
       venueName: '青岚南市 · 散修摊集',
       venueDesc:
-        '摊位沿着护城河排开，有叫卖清心草的采药客，也有兜售前朝残阵的老散修。你可以趁机低价备些货品或购入防身奇物，待来日局势变动时套利或破境。',
+        '摊位沿着护城河排开，有叫卖清心草的采药客，也有兜售前朝残阵的老散修。你可以趁机低价备些货品或购入防身奇物，待来日局势变动时居奇获利或助破关。',
       goodsIds: ['qingxin_herb', 'po_zhang_talisman', 'ancient_rubbing'],
       relicOffers: [
         {
@@ -828,13 +834,31 @@ export const ACT1_SCENES: Record<string, SceneDefinition> = {
       '青岚南市人声鼎沸，空气里飘着劣质丹香与潮湿草木味。一块灵石足够凡人一家衣食无忧一年，在这里却往往只够买半张破障符。',
       {
         when: (s) => Boolean(s.flags.ev_merchant_manual),
-        text: '你对照着《灵市货殖考》扫了一圈摊面，心里渐渐有了底。眼下青岚街市还算太平，可只要青州疫情或血丹风波一炸，如今不起眼的清心草与符箓便会身价翻番。',
+        text: (s) => {
+          const heardPlague = Boolean(s.flags.done_ev_qingzhou_vow);
+          const heardBloodPill = Boolean(
+            s.flags.act1_heard_blood_pill || s.flags.act1_crossroads_done
+          );
+          if (heardPlague && heardBloodPill) {
+            return '你对照着《灵市货殖考》扫了一圈摊面，心里渐渐有了底。眼下青岚街市还算太平，可只要青州疫势或血丹风波一炸，如今不起眼的清心草与符箓便会身价翻番。';
+          }
+          if (heardBloodPill) {
+            return '你对照着《灵市货殖考》扫了一圈摊面，心里渐渐有了底。眼下青岚街市还算太平，可只要暗市血丹风波一炸，如今不起眼的清心草与符箓便会身价翻番。';
+          }
+          if (heardPlague) {
+            return '你对照着《灵市货殖考》扫了一圈摊面，心里渐渐有了底。眼下青岚街市还算太平，可只要青州怪病势起或丹坊生变，如今不起眼的清心草与符箓便会身价翻番。';
+          }
+          return '你对照着《灵市货殖考》扫了一圈摊面，心里渐渐有了底。眼下青岚街市还算太平，可按商经旧例，凡遇疫病或丹坊生变，如今不起眼的清心草与符箓便会身价翻番。';
+        },
       },
       {
         when: (s) => s.relics.includes('baibao_token'),
-        text: '你袖口微露那枚乌沉沉的【百宝斋玄铁令】，奇物摊主瞥见后顿时换了副殷勤笑脸，低声道南市奇物照百宝斋旧例一律算你八五折。',
+        text: '你袖口微露那枚乌沉沉的【百宝斋玄铁令】，奇物摊主瞥见后顿时换了副殷勤笑脸，低声道南市奇物照百宝斋旧例一律折让一成半。',
       },
-      '你可以在此自由置办些行市货品或奇物，亦可直接离开坊市，前往城中茶肆打探拜师与引气门路。',
+      (s) =>
+        s.flags.act1_crossroads_done
+          ? '你可以在此自由置办些行市货品或奇物，亦可直接离开坊市，返回青岚街市筹备引气破境或另寻机缘。'
+          : '你可以在此自由置办些行市货品或奇物，亦可直接离开坊市，前往城中茶肆打探拜师与引气门路。',
     ],
     choices: [
       {
@@ -935,12 +959,12 @@ export const ACT1_SCENES: Record<string, SceneDefinition> = {
           '茶盏翻滚、热汤四溅的混乱只持续了三息。你借势往前一扑，肩背挡在巡查弟子身前，顺手将滚落脚边的血丹飞快塞回那散修怀中。对方感激地瞥了你一眼，撞破临街木窗没入人群。',
           (s) =>
             s.companions.xie_wujiu.met
-              ? '巡查弟子扑了个空，骂骂咧咧地收队离开。直到三日后的傍晚，百宝斋那名灰衣伙计才敲开你的石室门，奉上五十五块灵石笑道：“少东家托我带话，说{{honorific}}这手掀桌的本事倒比在子夜茶坊还利落。这点灵石算茶水钱，得空随时来二楼雅间喝茶。”'
+              ? '巡查弟子扑了个空，骂骂咧咧地收队离开。直到三日后的傍晚，百宝斋那名灰衣伙计才敲开你的石室门，奉上五十五块灵石笑道：“少东家托我带话，说{{honorific}}这手搅局脱身的本事倒比在子夜茶坊还利落。这点灵石算茶水资，得空随时来二楼雅间喝茶。”'
               : '巡查弟子扑了个空，骂骂咧咧地收队离开。直到三日后的傍晚，一名灰衣伙计才敲开你的石室门，奉上五十五块灵石与一张暗红拜帖：“百宝斋谢少东家听说了茶肆的事，托我送份薄礼。阁下得空时，可凭帖去城西后门喝杯茶。”',
           (s) =>
             s.companions.xie_wujiu.met
-              ? '你掂了掂这份顺水人情，盘算着是拿钱买阵盘，还是抽空再登百宝斋二楼同谢无咎对对风声。'
-              : '你掂了掂这份暗市人情，决定接下来是拿钱买阵盘，还是先赴百宝斋看看谢无咎的虚实。',
+              ? '你掂了掂这份顺水人情，盘算着是花灵石购阵盘，还是抽空再登百宝斋二楼同谢无咎对对风声。'
+              : '你掂了掂这份暗市人情，决定接下来是花灵石购阵盘，还是先赴百宝斋看看谢无咎的虚实。',
         ],
         outcomeContinueLabel: (s) =>
           s.companions.xie_wujiu.met
@@ -1055,7 +1079,7 @@ export const ACT1_SCENES: Record<string, SceneDefinition> = {
           logSummary: '耗费八十灵石租借灵眼静室，一载有余顺遂引气入体，踏入炼气期。',
         },
         outcome: [
-          '八十块灵石交出去的那一刻虽叫人心疼，踏入青岚灵眼静室后，满室浓润灵息立刻证明这笔钱没白花。',
+          '八十块灵石交出去的那一刻虽叫人心疼，踏入青岚灵眼静室后，满室浓润灵息立刻证明这笔灵石没白花。',
           '一载零二月光阴在静坐中滑过。某日寅时，腹中温热气旋彻底成型，你叩开了修仙第一关。',
         ],
         outcomeContinueLabel: '破关而出 · 初窥仙门夜空',
@@ -1083,7 +1107,7 @@ export const ACT1_SCENES: Record<string, SceneDefinition> = {
         },
         outcome: [
           '逆脉行气之痛远超想象，十个月里你数次疼得咬破嘴唇、冷汗浸透{{robe}}，全靠苍溟在识海里时而喝骂、时而精准护住心脉才未致经脉寸断。',
-          '终于在第十月朔夜，三道奇脉逆冲贯通！苍溟长长舒了口气，语气放软一分：“不错，竟真咬牙撑下来了。这具根基，比如今那些大宗门吃丹药喂出来的温室花朵强上十倍。”',
+          '终于在第十月朔夜，三道奇脉逆冲贯通！苍溟长长舒了口气，语气放软一分：“不错，竟真咬牙撑下来了。这具根基，比如今那些大宗门靠丹药喂出来的宗阁娇苗强上十倍。”',
         ],
         outcomeContinueLabel: '调息破关 · 推窗夜望',
         next: 'act1_breakthrough_trial',

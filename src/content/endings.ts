@@ -6,11 +6,13 @@ import {
 } from '../engine/types';
 import { formatCalendarDate, getAgeYears, toChineseYearNumber } from '../engine/time';
 import { isSuZhiweiAlive } from './companions';
+import { hasDeepBond, isDaoPartner } from '../engine/systems';
 
 const EARLY_ENDING_IDS = new Set([
   'ending_lifespan',
   'ending_blood_demon',
   'ending_fallen_path',
+  'ending_silenced',
   'ending_qingzhou_hearth',
   'ending_merchant_lord',
 ]);
@@ -26,19 +28,13 @@ function isXieHostile(state: GameState): boolean {
 
 function isBonded(state: GameState, id: CompanionId): boolean {
   if (id === 'cang_ming' && isCangMingSealed(state)) return false;
-  const c = state.companions[id];
-  return (
-    c.met &&
-    c.stance !== 'estranged' &&
-    c.stance !== 'rival' &&
-    (c.stance === 'bonded' || c.affection >= 60)
-  );
+  return hasDeepBond(state, id);
 }
 
 function isFriendly(state: GameState, id: CompanionId): boolean {
   if (id === 'cang_ming' && isCangMingSealed(state)) return false;
   const c = state.companions[id];
-  return c.met && c.stance !== 'estranged' && c.stance !== 'rival' && c.affection >= 20;
+  return c.met && c.stance !== 'estranged' && c.stance !== 'rival' && c.affection >= 30;
 }
 
 function formatNames(names: string[]): string {
@@ -107,10 +103,9 @@ function buildCompanionAftermath(
   const isFakeDeath = s.realm === 'deity_transform';
 
   if (s.companions.shen_qingshuang.met) {
-    const alreadyLeftSect =
-      s.tags.includes('sect_rebel') ||
-      Boolean(s.flags.shen_left_sect) ||
-      Boolean(s.flags.shen_freed_from_sect);
+    const alreadyLeftSect = Boolean(
+      s.flags.shen_left_sect || s.flags.shen_freed_from_sect
+    );
     if (
       s.companions.shen_qingshuang.stance === 'estranged' ||
       s.companions.shen_qingshuang.stance === 'rival'
@@ -129,11 +124,26 @@ function buildCompanionAftermath(
     } else if (context === 'sky_broken_solo' && isBonded(s, 'shen_qingshuang')) {
       notes.push('沈清霜提剑踏遍北溟与青岚旧地，寻你半生未果，只在断剑亭檐下常年多留一盏风灯。');
     } else if (context === 'mortal_era') {
-      notes.push(
-        alreadyLeftSect
-          ? '灵根散尽那日，沈清霜收剑立在松风里，笑说这一回总算能当个寻常剑客了。'
-          : '灵根散尽那日，沈清霜解下霜剑挂在青云山门，笑说这一回总算能当个寻常剑客了。'
-      );
+      if (isDaoPartner(s, 'shen_qingshuang')) {
+        notes.push(
+          '灵根散尽那日，沈清霜将霜剑挂上青州竹舍的檐梁，执手与你同看山间暮色。昔年最怕孤寒的剑修，终究在人间烟火里找到了长夜归处。'
+        );
+      } else if (
+        s.companions.shen_qingshuang.bondType === 'sworn' ||
+        isBonded(s, 'shen_qingshuang')
+      ) {
+        notes.push(
+          alreadyLeftSect
+            ? '灵根散尽那日，沈清霜收剑立在松风里，笑说这一回总算能当个寻常剑客了；每逢冬雪初霁，她仍常提一壶梅子酒来你竹舍对坐半日。'
+            : '灵根散尽那日，沈清霜解下霜剑挂在青云山门，笑说这一回总算能当个寻常剑客了；每逢冬雪初霁，她仍常提一壶梅子酒来你竹舍对坐半日。'
+        );
+      } else {
+        notes.push(
+          alreadyLeftSect
+            ? '灵根散尽那日，沈清霜收剑立在松风里，笑说这一回总算能当个寻常剑客了。'
+            : '灵根散尽那日，沈清霜解下霜剑挂在青云山门，笑说这一回总算能当个寻常剑客了。'
+        );
+      }
     } else if (context === 'demonic') {
       notes.push('沈清霜望着换了主人的九霄，长叹一声封剑避世，不降，也不再拔剑。');
     } else if (context === 'ascended' && isFriendly(s, 'shen_qingshuang')) {
@@ -167,11 +177,26 @@ function buildCompanionAftermath(
     } else if (context === 'gilded' && isFriendly(s, 'xie_wujiu')) {
       notes.push('谢无咎执掌九州商盟总账房，逢人便笑谈当年拿灵石逼退上界的荒唐豪举。兄长旧玉佩也安稳躺回祠堂。');
     } else if (context === 'sky_broken' && isBonded(s, 'xie_wujiu')) {
-      notes.push('谢无咎把兄长旧玉佩埋入天门焦土，临行拎着两坛老酒笑道，往后太平生意还欠他一半干股。');
+      notes.push('谢无咎把兄长旧玉佩埋入天门焦土，临行拎着两坛老酒笑道，往后太平生意还欠他一半暗股红利。');
     } else if (context === 'sky_broken_solo' && isBonded(s, 'xie_wujiu')) {
       notes.push('谢无咎将兄长旧玉佩与你生前印信一并封入青岚老宅。酒肆小酌时，案头总多摆一只空盏。');
     } else if (context === 'mortal_era') {
-      notes.push('世间再无灵石可卖，谢无咎摇着折扇改做茶盐丝绸，不过十年又成了九州大商贾。');
+      if (isDaoPartner(s, 'xie_wujiu')) {
+        notes.push(
+          '世间再无灵石可卖，谢无咎笑着合上旧账本改做茶盐丝绸，却把大半光阴都留在了你的青州竹舍里。每逢秋雨，他总温一壶老酒拨弄那枚玄铁算珠，笑说这一世最赚的买卖，便是陪你做一对寻常白首人。'
+        );
+      } else if (
+        s.companions.xie_wujiu.bondType === 'sworn' ||
+        isBonded(s, 'xie_wujiu')
+      ) {
+        notes.push(
+          '世间再无灵石可卖，谢无咎摇着折扇改做茶盐丝绸，不过十年又成了九州大商贾。每年春茶新焙，他总亲自赶着马车来你青州竹舍蹭两碗桂花酒，笑骂你散了修为倒比从前更难算计。'
+        );
+      } else {
+        notes.push(
+          '世间再无灵石可卖，谢无咎摇着折扇改做茶盐丝绸，不过十年又成了九州大商贾。'
+        );
+      }
     } else if (context === 'ascended' && isFriendly(s, 'xie_wujiu')) {
       notes.push('谢无咎在百宝斋账簿末页划去你的名姓，把你生前旧印信沉进了青岚湖底。');
     } else if (context === 'hidden' && isFriendly(s, 'xie_wujiu')) {
@@ -194,27 +219,71 @@ function buildCompanionAftermath(
     const suAlive =
       Boolean(s.flags.su_zhiwei_saved_longlife) &&
       !s.flags.su_zhiwei_passed &&
+      !s.companions.su_zhiwei.deceased &&
       getAgeYears(s.ageMonths) <= 95;
-    if (context === 'mortal_era') {
+    const suDistant =
+      s.companions.su_zhiwei.stance === 'estranged' ||
+      s.companions.su_zhiwei.stance === 'rival' ||
+      (Boolean(s.flags.left_qingzhou_coldly) &&
+        s.companions.su_zhiwei.affection < 10);
+    const suPartner = isDaoPartner(s, 'su_zhiwei') && !suDistant;
+    const ayunKeeper =
+      getAgeYears(s.ageMonths) >= 120 ? '阿芸一脉传人' : '阿芸';
+    if (suDistant) {
       notes.push(
         suAlive
-          ? '青州城外杏林新苗成荫，苏知微与阿芸抄录的无灵医典传遍九州。凡人再不必活在长生阴影之下。'
-          : '青州城外杏林新苗成荫，苏知微留下的无灵医典由阿芸续抄传遍九州。凡人再不必活在长生阴影之下。'
+          ? '青州城外药庐灯火如旧。白发苏知微偶闻九州风云，只淡淡合上医卷，昔年仙凡殊途之后，她再未问过你的行踪。'
+          : `青州老杏树下药庐仍由${ayunKeeper}续燃灯火。昔年那段冷淡断绝的旧缘，早已随岁华一并沉入青州尘烟。`
       );
+    } else if (context === 'mortal_era') {
+      if (suPartner && suAlive) {
+        notes.push(
+          '青州杏林新苗成荫，苏知微靠在竹椅上听你替阿芸念完最后几页《无灵医典》，嘴角含笑。余生虽短，灯火相伴，凡人再不必活在长生阴影之下。'
+        );
+      } else if (suPartner && !suAlive) {
+        notes.push(
+          '青州杏林新苗成荫，阿芸一脉承续着《无灵医典》传遍九州；而你每逢桂花时节，总在故去道侣碑前温一盏清茶，静坐至日暮。'
+        );
+      } else {
+        notes.push(
+          suAlive
+            ? '青州城外杏林新苗成荫，苏知微与阿芸抄录的无灵医典传遍九州。凡人再不必活在长生阴影之下。'
+            : getAgeYears(s.ageMonths) >= 120
+            ? '青州城外杏林新苗成荫，苏知微留下的无灵医典由杏林后人阿芸一脉续抄传遍九州。凡人再不必活在长生阴影之下。'
+            : '青州城外杏林新苗成荫，苏知微留下的无灵医典由阿芸续抄传遍九州。凡人再不必活在长生阴影之下。'
+        );
+      }
     } else if (suAlive && context === 'demonic') {
       notes.push('青州药庐的灯还亮着。白发苍苍的苏知微听说九霄换了新主，只轻叹一声，把窗闩插紧了半寸。');
     } else if (!suAlive && context === 'demonic') {
-      notes.push('青州老杏树下，阿芸扫净石碑上的灰雪，把药庐旧门掩紧了半扇。');
+      const dustOrSnow = s.seasonIndex === 3 ? '灰雪' : '尘灰';
+      notes.push(`青州老杏树下，${ayunKeeper}扫净石碑上的${dustOrSnow}，把药庐旧门掩紧了半扇。`);
     } else if (suAlive && context === 'ascended') {
       notes.push('青州城外白发苍苍的苏知微望见天际金光合拢，在药炉旁沏了一盏再无人来喝的桂花茶。');
     } else if (suAlive && context === 'hidden') {
       notes.push('青州城外，白发苏知微偶有收到南岭捎来的新焙春茶。她猜你瞒过了高天冷眼，在药炉旁笑出了声。');
+    } else if (suAlive && suPartner && (context === 'sky_broken' || context === 'gilded')) {
+      notes.push(
+        '高天压迫尽散那日，你第一时间御剑折返青州杏林。白发苍苍的苏知微正守在药炉旁，听见柴扉轻响，笑着把早已温好的桂花茶递到你手心。'
+      );
+    } else if (suAlive && suPartner && context === 'sky_broken_solo') {
+      notes.push(
+        '高天裂穹熄灭那日，青州药庐的灯彻夜未熄。白发苍苍的苏知微将温好的桂花茶摆在案头，静静望着城外官道尽头——纵然九州皆传那道孤锋已归云海，她仍笃信结发之人终有一日会踏月归来。'
+      );
+    } else if (!suAlive && suPartner && (context === 'sky_broken' || context === 'gilded')) {
+      notes.push(
+        '高天压迫尽散那日，你独自回到青州老杏树下，替故去道侣拂去碑前落花。她留下的药庐灯火正由阿芸一脉续燃，人间从此安稳。'
+      );
+    } else if (!suAlive && suPartner && context === 'sky_broken_solo') {
+      notes.push(
+        `青州老杏树下，${ayunKeeper}替故去师父添满碑前清茶。人间从此再无高天悬炉，唯余山风拂过碑侧新绿。`
+      );
     } else if (suAlive) {
       notes.push('青州城外白发苏知微听说高天压迫已散，在药炉旁松了口气，往茶碗里多添了两勺桂花糖。');
     } else if (context === 'ascended') {
-      notes.push('青州药庐灯火由阿芸续燃。只是老杏树下的石碑前，再没等来那名容颜不老的故人。');
+      notes.push(`青州药庐灯火由${ayunKeeper}续燃。只是老杏树下的石碑前，再没等来那名容颜不老的故人。`);
     } else {
-      notes.push('青州药庐灯火由阿芸续燃。偶尔有路过新绿杏林的旅人，仍会替故人扫净石碑落花。');
+      notes.push(`青州药庐灯火由${ayunKeeper}续燃。偶尔有路过新绿杏林的旅人，仍会替故人扫净石碑落花。`);
     }
   }
 
@@ -236,7 +305,7 @@ function buildCompanionAftermath(
     } else if (s.companions.cang_ming.stance === 'rival') {
       notes.push('焦黑断玉中只余一声冷嗤，昔年古魂再未通声半字。');
     } else if (context === 'demonic' && s.tags.includes('cangming_reborn')) {
-      notes.push('苍溟提剑立在崩裂的云海边，偏头丢下一句“屠龙的到头来成了恶龙”，转身没入北疆荒雪。');
+      notes.push('苍溟提剑立在崩裂的云海边，偏头丢下一句“斩了旧天，倒自己坐上了旧天的椅子”，转身没入北疆荒雪。');
     } else if (context === 'demonic') {
       notes.push('断玉里的古魂只哼出一句“换汤不换药”，自此彻底沉寂。');
     } else if (context === 'sky_broken' && s.tags.includes('cangming_reborn')) {
@@ -248,9 +317,9 @@ function buildCompanionAftermath(
         notes.push('天门崩碎那夜，焦黑断玉化作一缕青光散入晨风。三千年孤魂，终于安眠。');
       }
     } else if (context === 'mortal_era') {
-      notes.push('灵气散尽前，苍溟洒脱一笑。他说自己本就是长明旧灰，能看见人间挣脱笼子，够本了。');
+      notes.push('灵气散尽前，苍溟洒脱一笑。他说自己本就是长明旧灰，能亲眼看见人间挣脱那座笼子，三千年孤魂也算值了。');
     } else if (context === 'ascended' && s.tags.includes('cangming_reborn')) {
-      notes.push('步入金光最后一瞬，孤峰外传来苍溟一声冷叹：“老掉牙的蠢路，你还是走了一遍。”');
+      notes.push('步入金光最后一瞬，孤峰外传来苍溟一声冷叹：“三千载死路，你终究还是走了一遍。”');
     } else if (context === 'ascended') {
       notes.push('步入金光最后一瞬，焦黑断玉发出一声极轻的叹息。旧日悲剧，又重演了一遍。');
     } else if (s.tags.includes('cangming_reborn')) {
@@ -398,6 +467,22 @@ export const ENDINGS: Record<string, EndingDefinition> = {
     },
   },
 
+  ending_silenced: {
+    id: 'ending_silenced',
+    title: '怀璧灭口',
+    subtitle: '结局 · 越阶遭诛',
+    tier: '陨落',
+    poem: '孤纸何堪叩虎前，无锋空作掌中烟。长生路上多霜刃，先淬寒芒再问天。',
+    epilogue: (s) => {
+      const killer = String(s.flags.silencing_killer ?? '高阶大能');
+      return [
+        `${formatCalendarDate(s.year, s.seasonIndex)}，${s.profile.name}年届${toChineseYearNumber(getAgeYears(s.ageMonths))}岁。身怀秘账，然既无暗网死手牵制，亦乏越阶抗衡之锋，孤身直叩${killer}之门。`,
+        '仙途从来不循凡尘公堂律法。高境修士翻手灭口，远比俯首谢罪易如反掌。一掌压落，密账成灰，尸骨无存；次日城中依旧车马喧阗，无人知晓昨夜曾有一名微末修士，欲以一纸薄墨撼动山岳。',
+        '若有来世，须先于暗处结成玉石俱焚之死手，或自淬足以跨阶断金的寒锋，再推强敌之扉。',
+      ];
+    },
+  },
+
   ending_qingzhou_hearth: {
     id: 'ending_qingzhou_hearth',
     title: '青州烟火',
@@ -420,7 +505,7 @@ export const ENDINGS: Record<string, EndingDefinition> = {
     tier: '商道',
     poem: '世人空逐云间鹤，唯我袖藏万里金。算尽灵潮兴替事，一城灯火系吾心。',
     epilogue: (s) => [
-      `手握${toChineseYearNumber(s.spiritStones)}枚灵石与纵横青岚的商脉，你看透了飞升传说的虚妄。天门既无归人，何不把实打实的人间富贵攥在掌心？`,
+      `手握${toChineseYearNumber(s.spiritStones)}枚灵石与纵横青岚的商脉，你看透了飞升传说的虚妄。天门既无归人，何不把实实在在的人间富贵攥在掌心？`,
       `${formatCalendarDate(s.year, s.seasonIndex)}，${s.profile.name}盘下青岚城三座核心灵阁，与百宝斋分庭抗礼又暗通声气。此后余生，宗门买丹看你脸色，散修求宝拜你门庭。你止步炼气，却把整座仙城的命脉拴在了一串算珠里。`,
     ],
   },
@@ -431,10 +516,13 @@ export const ENDINGS: Record<string, EndingDefinition> = {
     title: '双剑破长明',
     subtitle: '真结局 · 携手断天',
     tier: '真结局',
-    poem: '三千载烬落霜锋，并辔逆光斩九重。自此云开无伪诏，人间共看一山松。',
+    poem: '三千劫烬落霜锋，并剑排云斩九重。自此长空无伪诏，人间共看一山松。',
     epilogue: (s) => {
-      const displayName = (id: CompanionId) =>
-        id === 'shen_qingshuang' ? '沈清霜' : id === 'xie_wujiu' ? '谢无咎' : '苍溟';
+      const displayName = (id: CompanionId) => {
+        const base =
+          id === 'shen_qingshuang' ? '沈清霜' : id === 'xie_wujiu' ? '谢无咎' : '苍溟';
+        return isDaoPartner(s, id) ? `道侣${base}` : base;
+      };
       const allBonded = (['shen_qingshuang', 'xie_wujiu', 'cang_ming'] as CompanionId[]).filter(
         (id) => isBonded(s, id)
       );
@@ -449,17 +537,17 @@ export const ENDINGS: Record<string, EndingDefinition> = {
         !s.tags.includes('cangming_reborn');
       const clueLine =
         s.truthClues.length >= 9
-          ? `百载问道，你拼出${toChineseYearNumber(s.truthClues.length)}卷天机残录，将长明伪仙史彻查无遗。`
-          : '百载问道，你凭手中关键旧录刺穿了长明伪仙史。';
+          ? `百载问道，你遍稽${toChineseYearNumber(s.truthClues.length)}卷天机残录，将长明三千载伪史彻查无遗。`
+          : '百载问道，你凭手中旧录刺破了长明三千载伪史。';
       const dhLine = daoHeartClosingLine(s, 'sky_broken');
       const thirdPara = jadeBondedOnly
-        ? `金雨落定，你摊开掌心，那枚焦黑断玉在山风里碎作漫天青萤。三千载孤魂借你一剑雪了旧恨，终于安眠。大劫过后你谢绝盟主印信，独下天柱峰。${dhLine}此后雪夜温酒，案头总多留一盏。`
-        : `最难得的，是在坍塌的金雨里你们抓住了彼此的手。大劫过后，九州群修推你为新世盟主。你笑着把印信留给后来人，与${
+        ? `漫天金雨渐歇。你摊开掌心，那枚焦黑断玉于山风中碎作漫天青萤，随风散入长空。三千载孤魂借你一剑雪尽旧恨，终得安眠。大劫之后，你辞去新世盟主印信，独步走下天柱残峰。${dhLine}此后岁暮雪夜，案头温酒，总多摆一盏。`
+        : `漫天坍塌的金雨里，最难得的是你与故人始终不曾松开彼此的手。劫后九州群修共推你为新世盟主，你一笑辞谢，将印信留予后来之人，唯与${
             physicalBonded.length > 0 ? formatNames(physicalBonded) : partnerText
-          }一道离开天柱峰。${dhLine}长生再长，雪夜灯前终有人对酌。`;
+          }一道离开天柱峰。${dhLine}长生路再漫长，雪夜灯前，终有人同席对酌。`;
       const lines = [
-        `${formatCalendarDate(s.year, s.seasonIndex)}，${toChineseYearNumber(getAgeYears(s.ageMonths))}岁的化神修士${s.profile.name}与${partnerText}联手逆冲九大阵眼。白玉天门轰然碎作漫天金灰。`,
-        `${clueLine}天门既塌，九州地底被倒抽多年的灵脉止住枯竭。次年春风吹过青州与青岚，干裂古泉重新泛起清雾。后世废去“长明”旧历，称这一年为断天元年。`,
+        `${formatCalendarDate(s.year, s.seasonIndex)}，化神修士${s.profile.name}年届${toChineseYearNumber(getAgeYears(s.ageMonths))}岁，与${partnerText}联袂逆冲九大阵眼。万丈白玉天门应锋崩摧，化作漫天金灰坠入云海。`,
+        `${clueLine}天门既倾，九州地底倒抽数千年的灵脉终于止竭。次岁春风过青州、拂青岚，枯裂古泉复涌清雾。后世乃废“长明”伪历，改记是年为断天元年。`,
         thirdPara,
       ];
       const comp = buildCompanionAftermath(s, 'sky_broken', {
@@ -498,17 +586,29 @@ export const ENDINGS: Record<string, EndingDefinition> = {
     title: '无灵新世',
     subtitle: '真结局 · 凡尘永安',
     tier: '真结局',
-    poem: '焚尽灵根牧草灰，九霄冷眼自今闭。人间从此无仙劫，岁岁杏花照晚炊。',
+    poem: '焚尽灵根牧草烟，九霄冷眼闭长天。人间从此无仙劫，岁岁杏花照麦田。',
     epilogue: (s) => {
       const clueLine =
         s.truthClues.length >= 9
-          ? `百年查明的${toChineseYearNumber(s.truthClues.length)}卷旧世秘辛化作仙纪墓志铭。`
-          : '百年寻得的旧世真相化作仙纪墓志铭。';
+          ? `百年稽考所得${toChineseYearNumber(s.truthClues.length)}卷秘辛，自此尽作仙纪墓志。`
+          : '百年寻得的旧世真相，自此尽作仙纪墓志。';
       const dhLine = daoHeartClosingLine(s, 'mortal_era');
+      const suAlivePartner =
+        isDaoPartner(s, 'su_zhiwei') &&
+        Boolean(s.flags.su_zhiwei_saved_longlife) &&
+        !s.flags.su_zhiwei_passed &&
+        !s.companions.su_zhiwei.deceased &&
+        getAgeYears(s.ageMonths) <= 95;
+      const suDeceasedPartner = isDaoPartner(s, 'su_zhiwei') && !suAlivePartner;
+      const closingPara = suAlivePartner
+        ? `一身修为散入山河，容颜重归岁月雕琢。你回到青州城外，推开那扇积了数十年风露的竹篱。药炉的火没灭，老杏树下坐着满头银丝的苏知微。听见你的脚步声，她慢慢抬起头，看清你鬓边新生的几缕白发，忽然笑着红了眼眶：“这回……你可算能陪我一起慢慢老了。”你在杏林旁筑起三间竹舍，晨看炊烟，暮煎药茶。${dhLine}此后千秋万代，人间生老病死皆循四时自然，头顶之上，再无悬炉。`
+        : suDeceasedPartner
+        ? `一身修为散入山河，容颜重归岁月雕琢。你回到青州城外，老杏树下那方青石碑前落满白瓣。你拂去碑上尘土，将那枚贴身藏了半生的桂花结发锦囊轻轻放在碑前，又在杏林旁筑起三间竹舍，替她守住这炉永远不灭的药火。${dhLine}此后千秋万代，人间生老病死皆循四时自然，头顶之上，再无悬炉。`
+        : `一身修为散入山河，容颜重归岁月雕琢。你回到青州城外，在杏林旁筑起三间竹舍，晨观农人耕麦，暮看稚子放鸢。${dhLine}此后千秋万代，人间生老病死皆循四时自然，头顶之上，再无悬炉。`;
       const lines = [
-        `白光掠过九州山川。凡人血脉深处被上界种下的灵根牧种随之化作青烟。${formatCalendarDate(s.year, s.seasonIndex)}，${s.profile.name}在${toChineseYearNumber(getAgeYears(s.ageMonths))}岁这年逆转无灵归尘大阵，失了坐标的白玉天门在死寂中永远闭合。`,
-        `${clueLine}行囊里积攒的灵石在灵潮退尽后成了寻常顽石。九州宗门陆续解散，御剑飞行的旧闻在一代代人口耳相传里沦作古籍故事。`,
-        `修为散尽，容颜重归岁月雕刻。你回到青州城外修起三间竹舍，在杏林旁看农人耕麦、稚子放鸢。${dhLine}往后千秋，人间生老病死皆归自然，再无高天悬炉。`,
+        `一道素白清光掠过九州山河，凡人血脉深处被上界播下的灵根牧种，随之化作青烟散尽。${formatCalendarDate(s.year, s.seasonIndex)}，${s.profile.name}年届${toChineseYearNumber(getAgeYears(s.ageMonths))}岁，于绝巅逆转无灵归尘大阵；既失灵机牵引，九霄白玉天门于死寂之中永闭不启。`,
+        `${clueLine}灵潮退尽，行囊中累年积攒的灵石悉成顽石。九州仙宗次第散去，御剑凌霄之旧事，不出数代便只留作茶楼旧话与古籍残篇。`,
+        closingPara,
       ];
       const comp = buildCompanionAftermath(s, 'mortal_era');
       if (comp) lines.push(comp);
@@ -527,15 +627,15 @@ export const ENDINGS: Record<string, EndingDefinition> = {
       const useBaibaoNet =
         s.companions.xie_wujiu.met &&
         !isXieHostile(s) &&
-        s.companions.xie_wujiu.affection >= 20;
+        s.companions.xie_wujiu.affection >= 30;
       const netName = useBaibaoNet ? '百宝商盟暗网' : '七十二城散修金网';
       const ageCn = toChineseYearNumber(getAgeYears(s.ageMonths));
       const deedLine = hasDeed
         ? `${formatCalendarDate(s.year, s.seasonIndex)}，${s.profile.name}以${ageCn}岁化神之身挥动九州灵脉契。上界接引使算清破阵代价，冷然闭门而退。`
         : `${formatCalendarDate(s.year, s.seasonIndex)}，${s.profile.name}以${ageCn}岁化神之身调动${netName}与千金商契重分地气。上界接引使算清破阵代价，冷然闭门而退。`;
       const secondPara = hasDeed
-        ? '手握中州至青州三大主矿地权，你在废墟上立起总商盟，反哺枯脉、定下灵石本位。昔日高高在上的正道大宗开脉采石，也要向你递帖缴税。'
-        : `手中虽无半座正宗灵矿，你凭七十二城散修兑票与${useBaibaoNet ? '百宝暗网' : '自建地下金网'}织成无矿金网，以银票流通反制大宗垄断。化神老祖置办丹材，亦须走你的总号过账。`;
+        ? '手握中州至青州三大主矿地权，你在废墟上立起总商盟，反哺枯脉、重定灵石通兑之法。昔日高高在上的正道大宗开脉采石，也要向你递帖缴税。'
+        : `手中虽无半座正宗灵矿，你凭七十二城散修兑票与${useBaibaoNet ? '百宝暗网' : '自建地下金网'}织成无矿金网，以银票流通反制大宗独霸。化神老祖置办丹材，亦须走你的总号过账。`;
       const dhLine = daoHeartClosingLine(s, 'gilded');
       const lines = [
         `三十六座大城同时燃起灵石烽火。百万灵石与商契结成的赤金天网横亘云端。${deedLine}`,

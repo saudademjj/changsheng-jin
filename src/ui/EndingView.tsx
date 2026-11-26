@@ -1,7 +1,13 @@
 import React, { useEffect, useRef } from 'react';
 import { CompanionId, ContentRegistry, GameState } from '../engine/types';
 import { getAgeYears } from '../engine/time';
-import { isSuZhiweiAlive } from '../content/companions';
+import {
+  isActiveDaoPartner,
+  isCompanionDeceased,
+  isCompanionHostile,
+  isCompanionSealed,
+  isDaoPartner,
+} from '../engine/systems';
 
 interface EndingViewProps {
   state: GameState;
@@ -51,13 +57,29 @@ export const EndingView: React.FC<EndingViewProps> = ({
   const closeCompanions = (Object.keys(state.companions) as CompanionId[])
     .filter((cid) => {
       const c = state.companions[cid];
-      return c.met && (c.stance === 'bonded' || c.stance === 'confidant');
+      if (!c.met || isCompanionHostile(state, cid) || isCompanionSealed(state, cid)) {
+        return false;
+      }
+      return (
+        c.bondType === 'dao_partner' ||
+        c.bondType === 'sworn' ||
+        c.stance === 'bonded' ||
+        c.stance === 'confidant' ||
+        c.affection >= 30
+      );
     })
-    .map((cid) =>
-      cid === 'su_zhiwei' && !isSuZhiweiAlive(state)
-        ? '苏知微（故去）'
-        : registry.companions[cid].name
-    );
+    .map((cid) => {
+      const baseName = registry.companions[cid].name;
+      const deceased = isCompanionDeceased(state, cid);
+      const partner = deceased
+        ? isDaoPartner(state, cid)
+        : isActiveDaoPartner(state, cid);
+      if (deceased && partner) return `${baseName}（故去道侣）`;
+      if (deceased) return `${baseName}（已辞世）`;
+      if (partner) return `${baseName}（道侣）`;
+      if (state.companions[cid].bondType === 'sworn') return `${baseName}（挚交）`;
+      return baseName;
+    });
 
   return (
     <main className="ending-container">
@@ -107,7 +129,7 @@ export const EndingView: React.FC<EndingViewProps> = ({
 
       <div className="ending-actions">
         <button type="button" className="primary-btn" onClick={onRewindSaves}>
-          回溯命盘改写分支
+          回溯命盘，重择前路
         </button>
         <button type="button" className="ghost-btn" onClick={onStartNewRun}>
           重开新世（探他路故人）

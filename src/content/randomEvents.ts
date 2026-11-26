@@ -1,5 +1,6 @@
 import { RandomEventDefinition, SceneDefinition } from '../engine/types';
 import { getAgeYears } from '../engine/time';
+import { isMajorArcMissed } from '../engine/systems';
 
 export const RANDOM_EVENT_SCENES: Record<string, SceneDefinition> = {
   // ==================== 卷一随机事件 ====================
@@ -75,8 +76,8 @@ export const RANDOM_EVENT_SCENES: Record<string, SceneDefinition> = {
         outcome: [
           (s) =>
             s.tags.includes('origin_fallen_clan')
-              ? '你一眼便认出盒底伪造的丹阁落款破绽百出，伸指在丹壳上一刮，冲鼻的生甘草与蜂蜡味立刻散了开来！围观路人顿时大哗，那假道人脸色大变，连摊子边压箱底的三十五块灵石都顾不上收，一溜烟钻进人群逃得无影无踪。'
-              : '你伸指在丹壳上一刮，一股冲鼻的生甘草与蜂蜡味立刻散了开来！围观路人顿时大哗，那假道人脸色大变，连摊子边压箱底的三十五块灵石都顾不上收，一溜烟钻进人群逃得无影无踪。',
+              ? '你一眼便认出盒底伪造的丹阁落款破绽百出，伸指在丹壳上一刮，冲鼻的生甘草与蜂蜡味立刻散了开来！围观路人顿时大哗，那假道人脸色大变，连藏在摊底的三十五块灵石都顾不上收，一溜烟钻进人群逃得无影无踪。'
+              : '你伸指在丹壳上一刮，一股冲鼻的生甘草与蜂蜡味立刻散了开来！围观路人顿时大哗，那假道人脸色大变，连藏在摊底的三十五块灵石都顾不上收，一溜烟钻进人群逃得无影无踪。',
           '街坊们纷纷夸你好眼力，你淡笑着收好这笔意外之财，顺着石道折返青岚长街。',
         ],
         outcomeContinueLabel: '收好意外之财 · 折返青岚长街',
@@ -88,16 +89,16 @@ export const RANDOM_EVENT_SCENES: Record<string, SceneDefinition> = {
         insightTags: ['稳妥', '心境'],
         effect: { mind: 4 },
         outcome: [
-          '你抽回衣袖连药盒都没看便径直走开。假道人在身后嘀咕了两句“不识货”，很快又去纠缠别的愣头青了。你心中更添几分警醒，转道折返青岚长街。',
+          '你抽回衣袖连药盒都没看便径直走开。假道人在身后嘀咕了两句“不识货”，很快又去纠缠别的初入仙途的嫩雏了。你心中更添几分警醒，转道折返青岚长街。',
         ],
         outcomeContinueLabel: '淡然离开 · 折返青岚长街',
         next: '__RETURN__',
       },
       {
         id: 'r1_pill_buy_gamble',
-        label: '抱着万一捡漏的心思花三十灵石买下细查',
+        label: '抱着万一淘到遗珍的心思花三十灵石买下细查',
         requirement: { minSpiritStones: 30, lockReason: '需灵石 30' },
-        insightTags: ['耗灵石', '买个教训'],
+        insightTags: ['耗灵石', '以石博运'],
         effect: {
           spiritStones: -30,
           mind: 2,
@@ -161,7 +162,7 @@ export const RANDOM_EVENT_SCENES: Record<string, SceneDefinition> = {
     subtitle: '青岚偶遇',
     location: '城南茶亭 · 骤雨',
     paragraphs: [
-      '午后骤雨倾盆，一名浑身湿透的南来药商躲进同一座凉亭，叹气连连：“青州北边听说起了怪热，官道卡得紧，我这批清心草运不过去，眼看要受潮发霉，真是倒了血霉！”',
+      '午后骤雨倾盆，一名浑身湿透的南来药商躲进同一座凉亭，叹气连连：“青州北边听说起了怪热，官道卡得紧，我这批清心草运不过去，眼看要受潮发霉，真是晦气透顶！”',
     ],
     choices: [
       {
@@ -260,7 +261,7 @@ export const RANDOM_EVENT_SCENES: Record<string, SceneDefinition> = {
     subtitle: '青岚游历 · 凶险',
     location: '青岚官道 · 黑风峡',
     paragraphs: [
-      '暮色沉了。黑风峡口三道黑影自崖壁扑落，毒刃寒光映着为首刀疤散修的横肉：“灵气越发稀薄，丹药贵得像抢钱，道友借点灵石用用！”',
+      '暮色沉了。黑风峡口三道黑影自崖壁扑落，毒刃寒光映着为首刀疤散修的横肉：“灵气越发稀薄，丹药贵得似明抢，道友借点灵石用用！”',
     ],
     choices: [
       {
@@ -321,7 +322,7 @@ export const RANDOM_EVENT_SCENES: Record<string, SceneDefinition> = {
       },
       {
         id: 'r2_bandit_hard_escape',
-        label: '拼着受些轻伤硬撼破围，绝不低头交钱',
+        label: '拼着受些轻伤硬撼破围，绝不低头交石',
         insightTags: ['以伤换勇', '修为微升'],
         effect: {
           timeMonths: 4,
@@ -398,7 +399,7 @@ export const RANDOM_EVENT_SCENES: Record<string, SceneDefinition> = {
               : '村里';
             return `你笑着拉他坐下，自己拔开酒塞先灌了一口。几盏浊酒下去，老友拘谨的眉眼渐渐舒展，絮絮说起${placeText}谁家娶了亲、谁家老爹走了。靠岸时你悄悄把三十灵石折成的银票压在船舱蓑衣下，站在芦苇荡边目送乌篷船摇远。`;
           },
-          '江风吹过，你第一次真切尝到“长生”二字的滋味。所谓长生，原是顶着一张不老的脸，眼睁睁看着同路人一个个老去。',
+          '江风吹过，芦苇伏了一片。你立在渡口，衣袂不染霜尘，看着那条乌篷船摇进暮色。',
         ],
         outcomeContinueLabel: '目送孤舟 · 归返问途云海',
         bridgeNote: '老渡口与早衰旧友共饮半壶浊酒，江风沧桑，让你道心沉淀良多。',
@@ -438,22 +439,34 @@ export const RANDOM_EVENT_SCENES: Record<string, SceneDefinition> = {
         id: 'r2_omen_eye',
         label: '以天生异瞳死死凝视那道天裂缝隙，记下灵气倒流的星位',
         visible: (s) => s.tags.includes('spirit_eyes'),
-        insightTags: ['天生异瞳专属', '心境大进', '引出古脉线索'],
+        insightTags: (s) => [
+          '天生异瞳专属',
+          '心境大进',
+          s.completedThreads.includes('thread_ancient_vein') ||
+          isMajorArcMissed(s, 'act2', 'thread_ancient_vein')
+            ? '印证北麓地脉异象'
+            : '引出古脉线索',
+        ],
         effect: (s) => ({
           mind: 12,
           setFlags: {
             ancient_vein_disturbed: true,
             r2_omen_vein_done: s.completedThreads.includes('thread_ancient_vein'),
+            r2_omen_vein_missed: isMajorArcMissed(s, 'act2', 'thread_ancient_vein'),
           },
-          activateThreads: s.completedThreads.includes('thread_ancient_vein')
-            ? []
-            : ['thread_ancient_vein'],
+          activateThreads:
+            s.completedThreads.includes('thread_ancient_vein') ||
+            isMajorArcMissed(s, 'act2', 'thread_ancient_vein')
+              ? []
+              : ['thread_ancient_vein'],
         }),
         outcome: [
           '双目刺痛欲泪，你却借着天生异瞳看清了骇人的去向。漫天倒卷的灵息全顺着大地之下某处巨大支眼被强行抽升，未曾散入虚空半分，而那支眼的落点，赫然正是青州北麓深山！',
           (s) =>
             s.flags.r2_omen_vein_done
               ? '天裂闭合，你抹去眼角温热泪痕。方才所见再度印证了青州北麓地底那座逆抽大阵的恐怖，留给九州的时间比想象中更少。'
+              : s.flags.r2_omen_vein_missed
+              ? '天裂闭合，你抹去眼角温热泪痕。北麓枯脉虽已塌陷埋死、无从再入，方才那一瞥却让你彻底记住了高天倒抽灵息的骇人方位。'
               : '天裂闭合，你抹去眼角溢出的微热泪痕，心中已多了一条必须亲自去探的古脉暗线。',
         ],
         outcomeContinueLabel: '记下星位 · 归返问途云海',
@@ -547,7 +560,7 @@ export const RANDOM_EVENT_SCENES: Record<string, SceneDefinition> = {
               : '石刀一路剖到石心，里头只嵌着一指宽的杂色废玉，连本钱都只折回了一半，净亏三十灵石。你暗笑自己贪心，拍去衣尘离开摊位，反倒长了几分定力。',
         ],
         outcomeContinueLabel: (s) =>
-          s.flags.r2_jade_won ? '见好就收 · 归返问途云海' : '买个教训 · 归返问途云海',
+          s.flags.r2_jade_won ? '见好就收 · 归返问途云海' : '引以为戒 · 归返问途云海',
         bridgeNote: (s) =>
           s.flags.r2_jade_won
             ? '暗市赌石小赚一笔，倒也算旅途中的一桩乐事。'
@@ -632,7 +645,7 @@ export const RANDOM_EVENT_SCENES: Record<string, SceneDefinition> = {
           (s) =>
             s.flags.kept_clan_seal
               ? '“旧好就不必提了，但这赔罪礼我倒可以收下。”你指节轻叩腰间赤铜家印，将旧庚帖轻飘飘掷回托盘。对方见旧族骨气未折，生怕惹恼你，又额外添了二十五灵石凑足一百零五块奉上，这才如蒙大赦般作揖退去。'
-              : '“旧好就不必提了，但这赔罪礼我倒可以收下。”你将旧庚帖轻飘飘掷回托盘，顺手拿走了那袋沉甸甸的八十灵石。对方如蒙大赦般连连作揖退去，你也省下口舌，揣着这笔实打实的破境钱回了居所。',
+              : '“旧好就不必提了，但这赔罪礼我倒可以收下。”你将旧庚帖轻飘飘掷回托盘，顺手拿走了那袋沉甸甸的八十灵石。对方如蒙大赦般连连作揖退去，你也省下口舌，揣着这笔实实在在的破境灵石回了居所。',
         ],
         outcomeContinueLabel: '收礼了账 · 归返问途云海',
         bridgeNote: '昔日退婚小族奉上赔礼后两清，昔年旧事就此翻篇。',
@@ -698,14 +711,16 @@ export const RANDOM_EVENT_SCENES: Record<string, SceneDefinition> = {
       {
         id: 'r2_funeral_investigate',
         label: '记下这违背常理的怪事，动念前往青州杏林一探究竟',
-        insightTags: ['心境', '可激活青州怪疫线'],
+        insightTags: ['心境', '开启青州怪疫之局'],
         effect: (s) => ({
           mind: 6,
           righteous: 5,
           setFlags: { arc_plague_active: true },
-          activateThreads: s.completedThreads.includes('thread_qingzhou_plague')
-            ? []
-            : ['thread_qingzhou_plague'],
+          activateThreads:
+            s.completedThreads.includes('thread_qingzhou_plague') ||
+            isMajorArcMissed(s, 'act2', 'thread_qingzhou_plague')
+              ? []
+              : ['thread_qingzhou_plague'],
         }),
         outcome: [
           '你在道旁驻足目送那具薄棺远去。专杀微灵根、独放无灵者，这哪里像寻常天灾？寒意顺着脊背爬起，你暗暗决定，若有余暇务必往青州杏林查明真相。',
@@ -718,7 +733,7 @@ export const RANDOM_EVENT_SCENES: Record<string, SceneDefinition> = {
         id: 'r2_funeral_donate',
         label: '赠农人二十灵石帮补丧葬，顺道详询发病前后细情',
         requirement: { minSpiritStones: 20, lockReason: '需灵石 20' },
-        insightTags: ['耗20灵石', '心境与正道声望', '激活怪疫线'],
+        insightTags: ['耗20灵石', '心境与正道声望', '开启青州怪疫之局'],
         effect: (s) => ({
           spiritStones: -20,
           mind: 8,
@@ -726,9 +741,11 @@ export const RANDOM_EVENT_SCENES: Record<string, SceneDefinition> = {
           renown: 5,
           worldly: 6,
           setFlags: { arc_plague_active: true },
-          activateThreads: s.completedThreads.includes('thread_qingzhou_plague')
-            ? []
-            : ['thread_qingzhou_plague'],
+          activateThreads:
+            s.completedThreads.includes('thread_qingzhou_plague') ||
+            isMajorArcMissed(s, 'act2', 'thread_qingzhou_plague')
+              ? []
+              : ['thread_qingzhou_plague'],
         }),
         outcome: [
           '老农捧着那袋够全村过冬的灵石哭跪在地，断断续续告诉你：病发那夜北麓云层发红，村里凡测过灵根的孩子同时起了高热。你扶起老农，记下这桩怪异线索后折返青岚。',
@@ -759,7 +776,7 @@ export const RANDOM_EVENT_SCENES: Record<string, SceneDefinition> = {
         id: 'r2_whisper_talisman',
         label: '借荒庙旧符余韵斩断惑音，细细体悟方才那股熟悉的上界气息',
         visible: (s) => s.tags.includes('old_daoist_talisman'),
-        insightTags: ['荒庙旧符伏笔回收', '心境大进'],
+        insightTags: ['荒庙旧符应劫', '心境大进'],
         effect: {
           mind: 12,
           might: 5,
@@ -822,7 +839,7 @@ export const RANDOM_EVENT_SCENES: Record<string, SceneDefinition> = {
         id: 'r2_tip_buy_talisman',
         label: '趁两人酒酣，出四十灵石顺手吃下他们急抛的一张【破障符】',
         requirement: { minSpiritStones: 40, lockReason: '需灵石 40' },
-        insightTags: ['40灵石低吸破障符', '坊市套利'],
+        insightTags: ['四十灵石趁贱购入破障符', '待涨出货'],
         effect: {
           spiritStones: -40,
           renown: 3,
@@ -833,7 +850,7 @@ export const RANDOM_EVENT_SCENES: Record<string, SceneDefinition> = {
           '管事正愁手头一张余货懒得回库入账，见你痛快掏出四十灵石便当场画押脱手。这张二阶破障符待大坊动荡时转卖，至少能翻出一截差价。',
         ],
         outcomeContinueLabel: '收符离楼 · 归返问途云海',
-        bridgeNote: '醉仙楼里以低价吃进一张【破障符】，静待大坊涨价套利。',
+        bridgeNote: '醉仙楼里以低价吃进一张【破障符】，静待大坊涨价出货。',
         next: '__RETURN__',
       },
     ],
@@ -864,7 +881,8 @@ export const RANDOM_EVENTS: RandomEventDefinition[] = [
     once: true,
     when: (s) =>
       !s.completedThreads.includes('thread_qingzhou_plague') &&
-      !s.truthClues.includes('clue_mortal_blindspot'),
+      !s.truthClues.includes('clue_mortal_blindspot') &&
+      !isMajorArcMissed(s, 'act2', 'thread_qingzhou_plague'),
   },
   { sceneId: 'rand_act2_black_auction_tip', act: 'act2', weight: 10, once: true },
 ];

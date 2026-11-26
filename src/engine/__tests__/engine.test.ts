@@ -35,6 +35,34 @@ import {
 import { formatEndingBadge } from '../../ui/EndingView';
 import { isSuZhiweiAlive } from '../../content/companions';
 import { interpolateText, resolveParagraphs, resolveTextValue } from '../template';
+import {
+  canCommitMajorArc,
+  evaluateCoercion,
+  getCompanionStatusBadge,
+  getInvestigationProgress,
+  getOvermatchProfile,
+  getRemainingMajorArcSlots,
+  isActiveDaoPartner,
+  isCompanionDeceased,
+  MAX_MAJOR_ARCS_PER_ACT,
+} from '../systems';
+import {
+  canCommitBond,
+  canTriggerMilestone1,
+  commitCompanionBond,
+  getSanctuaryActivities,
+  giveSanctuaryGift,
+  performSanctuaryActivity,
+  triggerMilestone1,
+} from '../sanctuary';
+import {
+  getActProgressSnapshot,
+  getActTransitionEcho,
+  getFactionStandings,
+  getRealmLadder,
+  getWorldClimateSnapshot,
+  getWorldRegions,
+} from '../worldview';
 import { GameState, PlayerProfile } from '../types';
 
 function makeMemoryStorage(): StorageAdapter {
@@ -88,7 +116,7 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
       '__RANDOM_ACT5__',
     ]);
 
-    expect(Object.keys(CONTENT_REGISTRY.endings).length).toBe(12);
+    expect(Object.keys(CONTENT_REGISTRY.endings).length).toBe(13);
     expect(Object.keys(CONTENT_REGISTRY.truthClues).length).toBe(12);
     expect(Object.keys(scenes).length).toBeGreaterThanOrEqual(80);
 
@@ -306,6 +334,9 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
     step('blood1_partner_xie');
     step('hub_blood_2');
     step('blood2_expose_all');
+    step('hub2_companion_visit');
+    step('hub2_visit_cangming');
+    step('v_cm_ask_history');
     step('hub_foundation_gate');
     step('found_cangming_guard');
     step('demon_answer_defy');
@@ -345,6 +376,19 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
     step('war1_audit_ledger');
     step('war2_back_xie_coup');
     expect(state.relics).toContain('ascension_ledger');
+    // 卷四松崖共练碎天剑阵，再赴仙缘雅阁完成知交夜话与唯一道侣结契
+    step('hub4_companion_visit');
+    step('hub4_visit_shen');
+    step('v_shen_act4_sky_sword');
+    if (canTriggerMilestone1(state, 'shen_qingshuang')) {
+      const m1 = triggerMilestone1(state, 'shen_qingshuang');
+      expect(m1.ok).toBe(true);
+      state = m1.state;
+    }
+    const bondRes = commitCompanionBond(state, 'shen_qingshuang', 'dao_partner');
+    expect(bondRes.ok).toBe(true);
+    state = bondRes.state;
+    expect(state.daoPartnerId).toBe('shen_qingshuang');
 
     step('hub4_nascent_gate');
     step('nascent_companion_guard');
@@ -376,14 +420,14 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
       'act6_final_choice'
     );
 
-    // 验证至少 4 个终局选项同时解锁可选（含真结局与兜底结局）
+    // 验证终局按卷五道誓收束：立同途之誓并结道侣时解锁【双剑破长明】，收敛隐藏【孤剑斩天门】
     const finalChoices = getResolvedChoices(
       state,
       CONTENT_REGISTRY.scenes.act6_final_choice,
       CONTENT_REGISTRY
     );
     expect(finalChoices.some((c) => c.id === 'final_sever_sky_bonded' && !c.locked)).toBe(true);
-    expect(finalChoices.some((c) => c.id === 'final_sever_sky_solo' && !c.locked)).toBe(true);
+    expect(finalChoices.some((c) => c.id === 'final_sever_sky_solo')).toBe(false);
     expect(finalChoices.some((c) => c.id === 'final_false_ascension' && !c.locked)).toBe(true);
 
     step('final_sever_sky_bonded');
@@ -522,10 +566,10 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
 
   it('P0-2 autoDeriveStance 降级验证：好感下跌必须正常降态，estranged 保持不可逆', () => {
     expect(autoDeriveStance('bonded', 8)).toBe('stranger');
-    expect(autoDeriveStance('confidant', 8)).toBe('stranger');
-    expect(autoDeriveStance('confidant', 20)).toBe('confidant');
-    expect(autoDeriveStance('confidant', 59)).toBe('confidant');
-    expect(autoDeriveStance('confidant', 60)).toBe('bonded');
+    expect(autoDeriveStance('confidant', 29)).toBe('stranger');
+    expect(autoDeriveStance('confidant', 30)).toBe('confidant');
+    expect(autoDeriveStance('confidant', 74)).toBe('confidant');
+    expect(autoDeriveStance('confidant', 75)).toBe('bonded');
     expect(autoDeriveStance('confidant', -15)).toBe('rival');
     expect(autoDeriveStance('rival', -6)).toBe('rival');
     expect(autoDeriveStance('rival', 0)).toBe('stranger');
@@ -739,12 +783,12 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
       act: 'act6',
       realm: 'deity_transform',
       tags: ['cangming_reborn'],
-      truthClues: ['clue_stele_gap', 'clue_blood_pill_dust', 'clue_alliance_pact', 'clue_tianji_portal', 'clue_furnace_cycle'],
+      truthClues: ['clue_stele_gap', 'clue_vein_drain', 'clue_blood_pill_dust', 'clue_alliance_pact', 'clue_tianji_portal', 'clue_furnace_cycle'],
       companions: {
         ...base.companions,
-        shen_qingshuang: { ...base.companions.shen_qingshuang, met: true, affection: 60, stance: 'bonded' },
-        xie_wujiu: { ...base.companions.xie_wujiu, met: true, affection: 60, stance: 'bonded' },
-        cang_ming: { ...base.companions.cang_ming, met: true, affection: 60, stance: 'bonded' },
+        shen_qingshuang: { ...base.companions.shen_qingshuang, met: true, affection: 75, stance: 'bonded' },
+        xie_wujiu: { ...base.companions.xie_wujiu, met: true, affection: 75, stance: 'bonded' },
+        cang_ming: { ...base.companions.cang_ming, met: true, affection: 75, stance: 'bonded' },
       },
       currentSceneId: 'act6_final_choice',
     };
@@ -853,7 +897,7 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
     sC = buyRelicOffer(sC, CONTENT_REGISTRY, 'foundation_pill', 280, 'elixir').state;
     stepC('market_return_hub');
     stepC('hub_foundation_gate');
-    stepC('found_pill_orthodox');
+    stepC('found_array_or_stones');
     stepC('demon_answer_defy');
     stepC('act3_open_survey_all');
     stepC('hub3_chamber_1');
@@ -879,6 +923,7 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
     stepC('summit_expose_ledger');
     stepC('hub5_final_eve');
     stepC('eve_vow_bonded');
+    sC = { ...sC, spiritStones: Math.max(sC.spiritStones, 600) };
     stepC('hub5_deity_breakthrough');
     stepC('deity_with_stones_array');
     stepC('act6_step_to_climax');
@@ -950,9 +995,8 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
     stepD('summit_storm_altar');
     stepD('hub5_final_eve');
     stepD('eve_confront_rival');
-    sD = { ...sD, spiritStones: 600 };
     stepD('hub5_deity_breakthrough');
-    stepD('deity_with_stones_array');
+    stepD('deity_pure_will');
     stepD('act6_step_to_climax');
     stepD('final_demonic_devour');
     expect(sD.endingId).toBe('ending_demonic_devour');
@@ -1139,8 +1183,8 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
   it('Cycle 2 专项回归：防心许降级、纪事去重/起始年锚定、敌对收口、动态故人志与多伴侣化学反应', () => {
     const base = createInitialState(makeProfile(), CONTENT_REGISTRY);
 
-    // 1. setStance: 'bonded' 自动抬底 >= 60，后续 +affection 绝不触发降级
-    const bondedShenStart: GameState = {
+    // 1. 低好感陌生人不再一步跳级心许；达到 75 结契门槛后永不因正反馈降级
+    const lowShenStart: GameState = {
       ...base,
       act: 'act3',
       realm: 'foundation_mid',
@@ -1150,12 +1194,22 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
         shen_qingshuang: { met: true, affection: 10, stance: 'stranger', stage: 2, chronicle: [] },
       },
     };
+    const afterSect2Low = playStep(lowShenStart, 'sect2_break_vault_with_shen').afterCommit;
+    expect(afterSect2Low.companions.shen_qingshuang.stance).toBe('confidant');
+
+    const bondedShenStart: GameState = {
+      ...lowShenStart,
+      companions: {
+        ...base.companions,
+        shen_qingshuang: { met: true, affection: 68, stance: 'confidant', stage: 2, chronicle: [] },
+      },
+    };
     const afterSect2 = playStep(bondedShenStart, 'sect2_break_vault_with_shen').afterCommit;
     expect(afterSect2.companions.shen_qingshuang.stance).toBe('bonded');
-    expect(afterSect2.companions.shen_qingshuang.affection).toBeGreaterThanOrEqual(60);
+    expect(afterSect2.companions.shen_qingshuang.affection).toBeGreaterThanOrEqual(75);
     const afterFollowUpVisit = playStep(
       { ...afterSect2, currentSceneId: 'visit_shen_qingshuang' },
-      'v_shen_debate_dao'
+      'v_shen_act3_sect_intel'
     ).afterCommit;
     expect(afterFollowUpVisit.companions.shen_qingshuang.stance).toBe('bonded');
 
@@ -1177,14 +1231,14 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
     // 3. 伴侣纪事按正文去重 + 碎丹成婴护法记于起始年而非 23 年后
     const visitOnce = playStep(
       { ...afterSect2, year: 3032, currentSceneId: 'visit_shen_qingshuang' },
-      'v_shen_spar'
+      'v_shen_act3_overmatch'
     ).afterCommit;
     const visitTwice = playStep(
       { ...visitOnce, year: 3035, currentSceneId: 'visit_shen_qingshuang' },
-      'v_shen_spar'
+      'v_shen_act3_overmatch'
     ).afterCommit;
     const sparChronicles = visitTwice.companions.shen_qingshuang.chronicle.filter((c) =>
-      c.includes('松崖之下以真剑印证破境关窍')
+      c.includes('云岭松崖以真剑印证破防关窍')
     );
     expect(sparChronicles.length).toBe(1);
 
@@ -1421,12 +1475,21 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
         .some((c) => c.id === 'eve_vow_mortal')
     ).toBe(false);
 
-    const ledgerOnlySummit: GameState = {
+    const ledgerZeroClueSummit: GameState = {
       ...base,
       act: 'act5',
       relics: ['ascension_ledger'],
       truthClues: [],
       currentSceneId: 'act5_arc_summit',
+    };
+    expect(
+      getResolvedChoices(ledgerZeroClueSummit, CONTENT_REGISTRY.scenes.act5_arc_summit, CONTENT_REGISTRY).find(
+        (c) => c.id === 'summit_expose_ledger'
+      )?.locked
+    ).toBe(true);
+    const ledgerOnlySummit: GameState = {
+      ...ledgerZeroClueSummit,
+      truthClues: ['clue_vein_drain', 'clue_blood_pill_dust', 'clue_tianji_portal', 'clue_mortal_blindspot'],
     };
     const summitStep = playStep(ledgerOnlySummit, 'summit_expose_ledger');
     expect((summitStep.afterChoice.pendingTransition?.paragraphs ?? []).join('\n')).not.toContain(
@@ -1435,10 +1498,17 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
 
     // 5. P0-6: 已购奇物在剧情再次发放时折现补偿灵石（筑基丹 +180、养魂木 +320、育婴莲 +400）
     const hasPillBlackmail = playStep(
-      { ...base, act: 'act2', spiritStones: 0, relics: ['foundation_pill'], currentSceneId: 'act2_arc_blood_2' },
+      {
+        ...base,
+        act: 'act2',
+        spiritStones: 0,
+        relics: ['foundation_pill'],
+        flags: { act2_deadman_switch: true },
+        currentSceneId: 'act2_arc_blood_2',
+      },
       'blood2_blackmail_chamber'
     ).afterCommit;
-    expect(hasPillBlackmail.spiritStones).toBe(440);
+    expect(hasPillBlackmail.spiritStones).toBe(420);
 
     const hasWoodSoul = playStep(
       { ...base, act: 'act3', spiritStones: 0, relics: ['soul_nourishing_wood'], currentSceneId: 'act3_arc_soul_2' },
@@ -1467,7 +1537,7 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
         ...base,
         flags: { act4_chamber_collapsed: true },
       }).join('\n')
-    ).toContain('天机总坛虽毁');
+    ).toContain('天机七十二城商脉虽溃');
 
     const dyingHearth: GameState = {
       ...base,
@@ -1489,7 +1559,7 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
       { ...base, act: 'act2', spiritStones: 0, relics: ['blood_foundation_pill'], currentSceneId: 'act2_arc_blood_2' },
       'blood2_expose_all'
     ).afterCommit;
-    expect(exposeWithSample.spiritStones).toBe(200);
+    expect(exposeWithSample.spiritStones).toBe(185);
     expect(exposeWithSample.relics).not.toContain('blood_foundation_pill');
 
     const needleBloodFound = playStep(
@@ -1681,6 +1751,7 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
         realm: 'qi_peak',
         lifespanYears: 130,
         ageMonths: 129 * 12,
+        mind: 45,
         relics: ['foundation_pill'],
         currentSceneId: 'act2_foundation_gate',
       },
@@ -1729,7 +1800,7 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
         su_zhiwei: { met: true, affection: 20, stance: 'confidant', stage: 2, chronicle: [] },
       },
     };
-    expect(typeof suComp.title === 'function' ? suComp.title(oldAct5State) : suComp.title).toContain('故医');
+    expect(typeof suComp.title === 'function' ? suComp.title(oldAct5State) : suComp.title).toContain('已辞世');
     expect(typeof suComp.bio === 'function' ? suComp.bio(oldAct5State) : suComp.bio).toContain('安然长眠');
 
     const coldStudy = playStep(
@@ -1824,7 +1895,7 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
       .join('\n');
     expect(demonAftermath).toContain('冷眼看你这位新主');
     expect(demonAftermath).toContain('窗闩插紧');
-    expect(demonAftermath).toContain('恶龙');
+    expect(demonAftermath).toContain('旧天的椅子');
 
     const redeemed = playStep(
       {
@@ -1833,6 +1904,7 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
         alignment: { righteous: -15, worldly: 10 },
         tags: [...base.tags, 'demonic_sovereign', 'blood_pill_tainted'],
         relics: ['ascension_ledger'],
+        truthClues: ['clue_stele_gap', 'clue_vein_drain', 'clue_blood_pill_dust', 'clue_tianji_portal'],
         currentSceneId: 'act5_arc_summit',
       },
       'summit_expose_ledger'
@@ -2041,14 +2113,14 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
       CONTENT_REGISTRY.scenes.act2_market_grand,
       CONTENT_REGISTRY
     ).find((c) => c.id === 'market_merchant_ending');
-    expect(merchantChoice?.subtext).toContain('结局');
+    expect(merchantChoice?.subtext).toContain('终局');
 
     const earthChoice = getResolvedChoices(
       { ...base, act: 'act5', realm: 'nascent_soul', mind: 230, relics: ['mortal_hearth_talisman'] },
       CONTENT_REGISTRY.scenes.act5_deity_breakthrough,
       CONTENT_REGISTRY
     ).find((c) => c.id === 'deity_seal_earth_immortal');
-    expect(earthChoice?.subtext).toContain('结局');
+    expect(earthChoice?.subtext).toContain('终局');
 
     const bloodPillChoice = getResolvedChoices(
       { ...base, act: 'act2', relics: ['blood_foundation_pill'], mind: 25 },
@@ -2256,7 +2328,7 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
       CONTENT_REGISTRY.scenes.act4_arc_world_war_1.paragraphs,
       { ...base, act: 'act4', realm: 'golden_core' }
     ).join('\n');
-    expect(xieMeetOther).toContain('特邀道友入局');
+    expect(xieMeetOther).toContain('久仰道友金丹威名');
     expect(xieMeetOther).not.toContain('阁下');
 
     // 3. P0-3: 卷五 isLoyalCompanion 拒绝一面之缘 stranger (affection=5) 与翻脸苍溟
@@ -2314,8 +2386,8 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
     const smashStep = playStep(hostileXieChamber, 'chamber2_smash_ladder');
     const smashOut = (smashStep.afterChoice.pendingTransition?.paragraphs ?? []).join('\n');
     expect(smashStep.afterCommit.companions.xie_wujiu.stance).toBe('rival');
-    expect(smashOut).not.toContain('任你差遣');
-    expect(smashOut).toContain('挑夫');
+    expect(smashOut).not.toContain('半个东家');
+    expect(smashOut).toContain('残存伙计');
 
     // 5. P0-5: 慢磨大限坐化严格钳位至寿限且保持 year - age === 2996，正文用中文岁数
     const nearLimitAct2: GameState = {
@@ -2362,7 +2434,7 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
       },
       'sword2_betray_for_pill'
     );
-    expect((swordDupRes.afterChoice.pendingTransition?.paragraphs ?? []).join('\n')).toContain('折现一百八十灵石');
+    expect((swordDupRes.afterChoice.pendingTransition?.paragraphs ?? []).join('\n')).toContain('易得一百八十灵石');
     expect(swordDupRes.afterCommit.lastBridgeNote).toContain('二百六十灵石');
 
     const bloodDupRes = playStep(
@@ -2375,8 +2447,8 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
       },
       'blood1_take_bribe_pills'
     );
-    expect(bloodDupRes.afterCommit.spiritStones).toBe(160);
-    expect((bloodDupRes.afterChoice.pendingTransition?.paragraphs ?? []).join('\n')).toContain('一百六十灵石');
+    expect(bloodDupRes.afterCommit.spiritStones).toBe(150);
+    expect((bloodDupRes.afterChoice.pendingTransition?.paragraphs ?? []).join('\n')).toContain('一百五十灵石');
 
     const coldMortalEve: GameState = {
       ...base,
@@ -2460,7 +2532,7 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
       ...base,
       act: 'act5',
       realm: 'nascent_soul',
-      truthClues: ['clue_stele_gap', 'clue_vein_drain', 'clue_mortal_blindspot', 'clue_changming_night', 'clue_alliance_pact'],
+      truthClues: ['clue_stele_gap', 'clue_vein_drain', 'clue_blood_pill_dust', 'clue_mortal_blindspot', 'clue_changming_night', 'clue_alliance_pact'],
       flags: { act4_war_truce: true },
       companions: {
         ...base.companions,
@@ -2785,6 +2857,7 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
         'clue_blood_pill_dust',
         'clue_mortal_blindspot',
         'clue_changming_night',
+        'clue_alliance_pact',
       ],
       companions: {
         ...base.companions,
@@ -2903,6 +2976,7 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
 
     const soloWeak: GameState = {
       ...jadeOnlyBonded,
+      flags: { act5_final_vow: 'solo' },
       might: 180,
       relics: [],
     };
@@ -3062,6 +3136,7 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
       realm: 'golden_core',
       year: 3076,
       ageMonths: 80 * 12,
+      mind: 130,
       relics: ['nascent_lotus'],
       currentSceneId: 'act4_nascent_gate',
     };
@@ -3235,7 +3310,7 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
       flags: { act4_chamber_collapsed: true },
       market: {
         ...base.market,
-        holdings: { ancient_rubbing: { qty: 1, avgCost: 60 } },
+        holdings: { soul_amber: { qty: 1, avgCost: 260 } },
       },
       companions: {
         ...base.companions,
@@ -3248,11 +3323,16 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
       collapsedXieVisit
     ).join('\n');
     expect(xieParas).toContain('天机商行这颗毒瘤一拔');
-    const xieTipCommit = playStep(collapsedXieVisit, 'v_xie_market_tip').afterCommit;
-    expect(xieTipCommit.flags.act1_heard_blood_pill).toBeFalsy();
-    const xieGiftStep = playStep(collapsedXieVisit, 'v_xie_gift_curio');
-    expect((xieGiftStep.afterChoice.pendingTransition?.paragraphs ?? []).join('')).toContain('当年我哥飞升前');
-    expect((xieGiftStep.afterChoice.pendingTransition?.paragraphs ?? []).join('')).not.toContain('十年前我哥');
+    const act4XieChoices = getResolvedChoices(
+      collapsedXieVisit,
+      CONTENT_REGISTRY.scenes.visit_xie_wujiu,
+      CONTENT_REGISTRY
+    );
+    expect(act4XieChoices.some((c) => c.id === 'v_xie_market_tip')).toBe(false);
+    const xieDebateCommit = playStep(collapsedXieVisit, 'v_xie_act4_charter_debate').afterCommit;
+    expect(xieDebateCommit.flags.act1_heard_blood_pill).toBeFalsy();
+    const xieGiftStep = playStep(collapsedXieVisit, 'v_xie_act4_gift_amber');
+    expect((xieGiftStep.afterChoice.pendingTransition?.paragraphs ?? []).join('')).toContain('仙盟长老私账');
 
     const coldSuParas = resolveParagraphs(
       CONTENT_REGISTRY.scenes.visit_su_zhiwei.paragraphs,
@@ -3471,7 +3551,7 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
       currentSceneId: 'act2_arc_plague_2',
     };
     const afterDewSave = playStep(bondedSuState, 'plague2_use_longevity_dew').afterCommit;
-    expect(afterDewSave.companions.su_zhiwei.affection).toBe(108);
+    expect(afterDewSave.companions.su_zhiwei.affection).toBe(100);
     expect(afterDewSave.companions.su_zhiwei.stance).toBe('bonded');
 
     const bondedCmState: GameState = {
@@ -3485,7 +3565,7 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
       currentSceneId: 'act2_arc_vein_2',
     };
     const afterCmVow = playStep(bondedCmState, 'vein2_swear_with_cangming').afterCommit;
-    expect(afterCmVow.companions.cang_ming.affection).toBe(107);
+    expect(afterCmVow.companions.cang_ming.affection).toBe(95);
     expect(afterCmVow.companions.cang_ming.stance).toBe('bonded');
 
     // 2. P1-2: 合法高好感 (200~271) 经存储验证/读档 100% 守恒不被截断至 150
@@ -3771,12 +3851,14 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
     expect(typeof eveBondedSub === 'string' ? eveBondedSub : '').not.toContain('真结局');
     const soloWithBonded: GameState = {
       ...unmetXieGilded,
+      flags: { act5_final_vow: 'solo' },
       truthClues: [
         'clue_stele_gap',
-        'clue_blood_pill_origin',
+        'clue_blood_pill_dust',
         'clue_changming_night',
         'clue_mortal_blindspot',
         'clue_mortal_bloodline',
+        'clue_furnace_cycle',
       ],
       might: 240,
       companions: {
@@ -3786,5 +3868,1025 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
     };
     const soloStep = advanceChoice(soloWithBonded, 'final_sever_sky_solo', CONTENT_REGISTRY);
     expect(soloStep.state.pendingTransition?.paragraphs[0]).toContain('隔断来路不许故人涉险');
+  });
+
+  it('Cycle 18 专项回归：九大核心体验重构（谢线差异化、去出戏文案、四阶勘验、双大势取舍、亡者零亲近、仙缘道侣、阶段访友与越阶灭口）', () => {
+    const base = createInitialState(makeProfile(), CONTENT_REGISTRY);
+
+    // 1. 谢无咎三幕剧情彻底差异化（卷二血丹暗账 / 卷三百宝内变与仁商公审 / 卷四灵票崩潮与九州公契）
+    const xieAct2 = resolveParagraphs(CONTENT_REGISTRY.scenes.act2_arc_blood_1.paragraphs, {
+      ...base,
+      act: 'act2',
+    }).join('\n');
+    const xieAct3 = resolveParagraphs(CONTENT_REGISTRY.scenes.act3_arc_chamber_1.paragraphs, {
+      ...base,
+      act: 'act3',
+    }).join('\n');
+    const xieAct4 = resolveParagraphs(CONTENT_REGISTRY.scenes.act4_arc_world_war_1.paragraphs, {
+      ...base,
+      act: 'act4',
+    }).join('\n');
+    expect(xieAct2).toContain('血丹');
+    expect(xieAct3).toContain('周恪');
+    expect(xieAct3).toContain('药荒');
+    expect(xieAct4).toContain('灵根质押血契');
+    expect(xieAct4).toContain('九州灵矿独霸总章');
+
+    // 2. 文案去出戏：苏知微临终改写温润走心，全结局与全剧本无「够本」
+    const suFarewellStep = playStep(
+      {
+        ...base,
+        act: 'act3',
+        ageMonths: 62 * 12,
+        year: 3058,
+        companions: {
+          ...base.companions,
+          su_zhiwei: { met: true, affection: 65, stance: 'confidant', stage: 3, chronicle: [] },
+        },
+        currentSceneId: 'act3_arc_hearth_2',
+      },
+      'hearth2_farewell_passing'
+    );
+    const suFarewellSceneText = resolveParagraphs(
+      CONTENT_REGISTRY.scenes.act3_arc_hearth_2.paragraphs,
+      {
+        ...base,
+        act: 'act3',
+        ageMonths: 62 * 12,
+        year: 3058,
+        companions: {
+          ...base.companions,
+          su_zhiwei: { met: true, affection: 65, stance: 'confidant', stage: 3, chronicle: [] },
+        },
+        currentSceneId: 'act3_arc_hearth_2',
+      }
+    ).join('\n');
+    expect(suFarewellSceneText).toContain('人活一世，还能求什么');
+    expect(suFarewellSceneText).not.toContain('够本');
+    const suFarewellOut = (suFarewellStep.afterChoice.pendingTransition?.paragraphs ?? []).join('\n');
+    expect(suFarewellOut).not.toContain('够本');
+    const cmBondEp = CONTENT_REGISTRY.endings.ending_sever_sky_bonded
+      .epilogue({
+        ...base,
+        act: 'act6',
+        tags: [...base.tags, 'cangming_reborn'],
+        companions: {
+          ...base.companions,
+          cang_ming: { met: true, affection: 90, stance: 'bonded', bondType: 'dao_partner', stage: 4, chronicle: [] },
+        },
+      })
+      .join('\n');
+    expect(cmBondEp).not.toContain('够本');
+
+    // 3. 苏知微辞世后：deceased=true、记录辞世年份、绝不弹出「心生亲近」、命盘徽章严格标【已辞世】
+    const suDeadState = suFarewellStep.afterCommit;
+    expect(isCompanionDeceased(suDeadState, 'su_zhiwei')).toBe(true);
+    expect(suDeadState.companions.su_zhiwei.deceased).toBe(true);
+    expect(suDeadState.companions.su_zhiwei.deceasedYear).toBeDefined();
+    const suFarewellNotices = [
+      ...suFarewellStep.afterChoice.recentNotices,
+      ...(suFarewellStep.afterChoice.pendingTransition?.notices ?? []),
+    ].join('\n');
+    expect(suFarewellNotices).not.toContain('心生亲近');
+    expect(suFarewellNotices).not.toContain('默契渐深');
+    expect(getCompanionStatusBadge(suDeadState, 'su_zhiwei')).toMatchObject({
+      label: '已辞世',
+      tone: 'deceased',
+    });
+
+    // 4. 天时行动力（每卷至多 2 条核心大势）与暗桩买讯防绕过
+    let act2SlotState: GameState = {
+      ...base,
+      act: 'act2',
+      realm: 'qi_mid',
+      activeThreads: [
+        'thread_sword_trial',
+        'thread_blood_pill',
+        'thread_qingzhou_plague',
+        'thread_ancient_vein',
+      ],
+      currentSceneId: 'act2_hub',
+    };
+    expect(getRemainingMajorArcSlots(act2SlotState, 'act2')).toBe(MAX_MAJOR_ARCS_PER_ACT);
+    act2SlotState = playStep(act2SlotState, 'hub_sword_1').afterCommit;
+    expect(getRemainingMajorArcSlots(act2SlotState, 'act2')).toBe(1);
+    act2SlotState = playStep({ ...act2SlotState, currentSceneId: 'act2_hub' }, 'hub_blood_1').afterCommit;
+    expect(getRemainingMajorArcSlots(act2SlotState, 'act2')).toBe(0);
+    expect(canCommitMajorArc(act2SlotState, 'act2', 'thread_qingzhou_plague')).toBe(false);
+    expect(act2SlotState.flags.missed_thread_qingzhou_plague).toBe(true);
+    expect(act2SlotState.flags.missed_thread_ancient_vein).toBe(true);
+    // 听风酒肆买讯亦不可绕过 2 席上限
+    const intelAfterCap = getResolvedChoices(
+      { ...act2SlotState, spiritStones: 500, currentSceneId: 'act2_action_intel' },
+      CONTENT_REGISTRY.scenes.act2_action_intel,
+      CONTENT_REGISTRY
+    );
+    expect(intelAfterCap.some((c) => c.id === 'hub_cross_open_plague')).toBe(false);
+    expect(intelAfterCap.some((c) => c.id === 'hub_cross_open_vein')).toBe(false);
+
+    // 5. 四阶段天机证据链递进与仙盟「护界进贡论」
+    expect(getInvestigationProgress({ ...base, truthClues: [] }, CONTENT_REGISTRY).chainTier).toBe(0);
+    expect(
+      getInvestigationProgress({ ...base, truthClues: ['clue_stele_gap'] }, CONTENT_REGISTRY).chainTier
+    ).toBe(1);
+    expect(
+      getInvestigationProgress(
+        {
+          ...base,
+          truthClues: ['clue_stele_gap', 'clue_vein_drain', 'clue_blood_pill_dust', 'clue_tianji_portal'],
+        },
+        CONTENT_REGISTRY
+      ).chainTier
+    ).toBe(2);
+    expect(
+      getInvestigationProgress(
+        {
+          ...base,
+          truthClues: [
+            'clue_stele_gap',
+            'clue_vein_drain',
+            'clue_blood_pill_dust',
+            'clue_tianji_portal',
+            'clue_alliance_pact',
+            'clue_zhantian_remnant',
+            'clue_furnace_cycle',
+          ],
+        },
+        CONTENT_REGISTRY
+      ).chainTier
+    ).toBe(3);
+    const summitParas = resolveParagraphs(CONTENT_REGISTRY.scenes.act5_arc_summit.paragraphs, {
+      ...base,
+      act: 'act5',
+    }).join('\n');
+    expect(summitParas).toContain('依约进贡');
+    expect(summitParas).toContain('保住界壁');
+
+    // 6. 仙缘雅阁：一阶知交夜话(30)、唯一道侣(75)互斥与生死挚交共存、赠礼喜恶、亡者焚香零好感增减
+    let sanct: GameState = {
+      ...base,
+      act: 'act3',
+      market: {
+        ...base.market,
+        holdings: {
+          golden_vein_sand: { qty: 1, avgCost: 200 },
+          po_zhang_talisman: { qty: 1, avgCost: 60 },
+        },
+      },
+      companions: {
+        ...base.companions,
+        shen_qingshuang: { met: true, affection: 76, stance: 'confidant', stage: 3, chronicle: [] },
+        xie_wujiu: { met: true, affection: 76, stance: 'confidant', stage: 3, chronicle: [] },
+        su_zhiwei: { met: true, affection: 40, stance: 'confidant', stage: 2, chronicle: [] },
+      },
+    };
+    // 赠礼喜恶：苏知微不喜杀伐符箓（好感下降），沈清霜喜金脉灵砂（好感上升）
+    const dislikeGift = giveSanctuaryGift(sanct, 'su_zhiwei', 'po_zhang_talisman', CONTENT_REGISTRY);
+    expect(dislikeGift.ok).toBe(true);
+    expect(dislikeGift.state.companions.su_zhiwei.affection).toBe(36);
+    sanct = dislikeGift.state;
+    const favGift = giveSanctuaryGift(sanct, 'shen_qingshuang', 'golden_vein_sand', CONTENT_REGISTRY);
+    expect(favGift.ok).toBe(true);
+    expect(favGift.state.companions.shen_qingshuang.affection).toBe(86);
+    sanct = favGift.state;
+
+    // 须先完成一阶知交夜话才可结契
+    expect(canCommitBond(sanct, 'shen_qingshuang', 'dao_partner').ok).toBe(false);
+    expect(canTriggerMilestone1(sanct, 'shen_qingshuang')).toBe(true);
+    const shenM1 = triggerMilestone1(sanct, 'shen_qingshuang');
+    expect(shenM1.ok).toBe(true);
+    expect(shenM1.state.companions.shen_qingshuang.letters?.length).toBe(1);
+    sanct = shenM1.state;
+
+    // 沈清霜结为唯一道侣后，谢无咎不可再结道侣，但可结生死挚交
+    const shenPartner = commitCompanionBond(sanct, 'shen_qingshuang', 'dao_partner');
+    expect(shenPartner.ok).toBe(true);
+    sanct = shenPartner.state;
+    expect(sanct.daoPartnerId).toBe('shen_qingshuang');
+    expect(getCompanionStatusBadge(sanct, 'shen_qingshuang')).toMatchObject({
+      label: '结契道侣',
+      tone: 'partner',
+    });
+
+    sanct = triggerMilestone1(sanct, 'xie_wujiu').state;
+    expect(canCommitBond(sanct, 'xie_wujiu', 'dao_partner').ok).toBe(false);
+    expect(canCommitBond(sanct, 'xie_wujiu', 'sworn').ok).toBe(true);
+    const xieSworn = commitCompanionBond(sanct, 'xie_wujiu', 'sworn');
+    expect(xieSworn.ok).toBe(true);
+    expect(getCompanionStatusBadge(xieSworn.state, 'xie_wujiu').label).toBe('生死挚交');
+
+    // 已辞世苏知微仅提供焚香追思，心境+8且好感绝不变动
+    const deadActs = getSanctuaryActivities(suDeadState, 'su_zhiwei');
+    expect(deadActs.map((a) => a.id)).toEqual(['mourn_lantern']);
+    const mournRes = performSanctuaryActivity(suDeadState, 'su_zhiwei', 'mourn_lantern');
+    expect(mournRes.ok).toBe(true);
+    expect(mournRes.state.mind).toBe(suDeadState.mind + 8);
+    expect(mournRes.state.companions.su_zhiwei.affection).toBe(
+      suDeadState.companions.su_zhiwei.affection
+    );
+
+    // 7. 拜访故人跨阶段彻底差异化（卷二 vs 卷三 vs 卷四核心选项零重复）
+    const visitScenes: Array<[string, string]> = [
+      ['visit_su_zhiwei', 'v_su_back'],
+      ['visit_xie_wujiu', 'v_xie_back'],
+      ['visit_shen_qingshuang', 'v_shen_back'],
+      ['visit_cang_ming', 'v_cm_back'],
+    ];
+    for (const [sceneId, backId] of visitScenes) {
+      const act2Ids = getResolvedChoices(
+        { ...base, act: 'act2', realm: 'qi_mid', currentSceneId: sceneId },
+        CONTENT_REGISTRY.scenes[sceneId],
+        CONTENT_REGISTRY
+      )
+        .map((c) => c.id)
+        .filter((id) => id !== backId);
+      const act3Ids = getResolvedChoices(
+        { ...base, act: 'act3', realm: 'foundation_mid', currentSceneId: sceneId },
+        CONTENT_REGISTRY.scenes[sceneId],
+        CONTENT_REGISTRY
+      )
+        .map((c) => c.id)
+        .filter((id) => id !== backId);
+      const act4Ids = getResolvedChoices(
+        { ...base, act: 'act4', realm: 'golden_core', flags: { su_zhiwei_saved_longlife: true }, currentSceneId: sceneId },
+        CONTENT_REGISTRY.scenes[sceneId],
+        CONTENT_REGISTRY
+      )
+        .map((c) => c.id)
+        .filter((id) => id !== backId);
+      expect(act2Ids.length).toBeGreaterThan(0);
+      expect(act3Ids.length).toBeGreaterThan(0);
+      expect(act4Ids.length).toBeGreaterThan(0);
+      expect(act2Ids.some((id) => act3Ids.includes(id))).toBe(false);
+      expect(act3Ids.some((id) => act4Ids.includes(id))).toBe(false);
+      expect(act2Ids.some((id) => act4Ids.includes(id))).toBe(false);
+    }
+
+    // 8. 境界压制与灭口后果：无死手无越阶战力拿孤本要挟金丹大管事 -> 惨遭灭口【怀璧灭口】；有保命符则重伤折寿逃遁；布死手或高越阶则谈判成功
+    const weakCoerce: GameState = {
+      ...base,
+      act: 'act3',
+      realm: 'foundation_early',
+      might: 50,
+      mind: 50,
+      tags: ['origin_herbalist'],
+      relics: [],
+      flags: {},
+      companions: {
+        ...base.companions,
+        cang_ming: { met: false, affection: 0, stance: 'unmet', stage: 0, chronicle: [] },
+        xie_wujiu: { met: true, affection: 10, stance: 'stranger', stage: 2, chronicle: [] },
+      },
+      currentSceneId: 'act3_arc_chamber_2',
+    };
+    expect(evaluateCoercion(weakCoerce, 'act3_tianji_goldcore').canSucceed).toBe(false);
+    expect(evaluateCoercion(weakCoerce, 'act3_tianji_goldcore').canSurviveFail).toBe(false);
+    const silencedRes = playStep(weakCoerce, 'chamber2_seize_ledger_deal').afterCommit;
+    expect(silencedRes.endingId).toBe('ending_silenced');
+
+    const lifesaverCoerce: GameState = {
+      ...weakCoerce,
+      tags: ['origin_herbalist', 'old_daoist_talisman'],
+    };
+    const escapedRes = playStep(lifesaverCoerce, 'chamber2_seize_ledger_deal').afterCommit;
+    expect(escapedRes.endingId).toBeUndefined();
+    expect(escapedRes.flags.escaped_silencing_act3_chamber).toBe(true);
+    expect(escapedRes.lifespanYears).toBeLessThan(lifesaverCoerce.lifespanYears);
+
+    const switchCoerce: GameState = {
+      ...weakCoerce,
+      flags: { act3_chamber_deadman_switch: true },
+    };
+    expect(evaluateCoercion(switchCoerce, 'act3_tianji_goldcore').canSucceed).toBe(true);
+    expect(getOvermatchProfile(switchCoerce).deadmanSwitches.length).toBeGreaterThanOrEqual(1);
+    const coercedOk = playStep(switchCoerce, 'chamber2_seize_ledger_deal').afterCommit;
+    expect(coercedOk.endingId).toBeUndefined();
+    expect(coercedOk.relics).toContain('golden_core_elixir');
+
+    // 9. 破境流派门槛：正道高正气不可走魔煞血丹捷径，无商道/阵盘不可白走聚灵大阵，铸就不同道基品阶
+    const pureOrthodoxGate = getResolvedChoices(
+      {
+        ...base,
+        act: 'act2',
+        alignment: { righteous: 40, worldly: 0 },
+        mind: 35,
+        tags: ['origin_herbalist'],
+        relics: ['blood_foundation_pill'],
+      },
+      CONTENT_REGISTRY.scenes.act2_foundation_gate,
+      CONTENT_REGISTRY
+    );
+    expect(pureOrthodoxGate.some((c) => c.id === 'found_blood_pill')).toBe(false);
+    expect(pureOrthodoxGate.some((c) => c.id === 'found_array_or_stones')).toBe(false);
+  });
+
+  it('Cycle 19 专项回归：九州世局、六方势力动态立场、六卷行迹脉络与跨卷前尘余波简报', () => {
+    const base = createInitialState(makeProfile(), CONTENT_REGISTRY);
+
+    // 1. 卷二行迹脉络：未破境前精确显示解锁差额与 2 席核心大势状态；满足条件后转为关口已启
+    const act2Early = getActProgressSnapshot({
+      ...base,
+      act: 'act2',
+      actBeat: 1,
+      might: 22,
+      actMajorArcs: { act2: ['thread_sword_trial'] },
+    });
+    expect(act2Early.breakthroughUnlocked).toBe(false);
+    expect(act2Early.majorSlotsUsed).toBe(1);
+    expect(act2Early.majorSlotsRemaining).toBe(1);
+    expect(act2Early.majorArcs.find((a) => a.threadId === 'thread_sword_trial')?.status).toBe(
+      'in_progress'
+    );
+
+    const act2Ready = getActProgressSnapshot({
+      ...base,
+      act: 'act2',
+      actBeat: 3,
+      might: 42,
+      completedThreads: ['thread_sword_trial', 'thread_blood_pill'],
+      actMajorArcs: { act2: ['thread_sword_trial', 'thread_blood_pill'] },
+      flags: { missed_thread_qingzhou_plague: true },
+    });
+    expect(act2Ready.breakthroughUnlocked).toBe(true);
+    expect(act2Ready.majorSlotsRemaining).toBe(0);
+    expect(act2Ready.majorArcs.find((a) => a.threadId === 'thread_qingzhou_plague')?.status).toBe(
+      'missed'
+    );
+
+    // 2. 九州灵脉随六幕递减至不足半成
+    const c1 = getWorldClimateSnapshot({ ...base, act: 'act1' });
+    const c3 = getWorldClimateSnapshot({ ...base, act: 'act3' });
+    const c5 = getWorldClimateSnapshot({ ...base, act: 'act5' });
+    const c6 = getWorldClimateSnapshot({ ...base, act: 'act6' });
+    expect(c1.veinPercent).toBeGreaterThan(c3.veinPercent);
+    expect(c3.veinPercent).toBeGreaterThan(c5.veinPercent);
+    expect(c5.veinPercent).toBeGreaterThan(c6.veinPercent);
+    expect(c6.crisisTone).toBe('critical');
+
+    // 3. 六方势力实时映射玩家因果（叛宗、公盟、天机崩盘、斩天同盟、红尘守灯）
+    const lateFactions = getFactionStandings({
+      ...base,
+      act: 'act5',
+      tags: ['sect_rebel', 'sky_slayer_ally', 'mortal_keeper'],
+      flags: {
+        act4_chamber_collapsed: true,
+        xie_new_order_founded: true,
+        su_zhiwei_passed: true,
+      },
+      companions: {
+        ...base.companions,
+        su_zhiwei: { ...base.companions.su_zhiwei, met: true, deceased: true },
+      },
+    });
+    expect(lateFactions).toHaveLength(6);
+    expect(lateFactions.find((f) => f.id === 'qingyun')?.standingLabel).toBe('叛宗通缉');
+    expect(lateFactions.find((f) => f.id === 'alliance')?.standingLabel).toBe('仙盟逆党');
+    expect(lateFactions.find((f) => f.id === 'tianji')?.standingLabel).toBe('总号崩灭');
+    expect(lateFactions.find((f) => f.id === 'baibao')?.standingLabel).toBe('公盟共主');
+    expect(lateFactions.find((f) => f.id === 'zhantian')?.standingLabel).toBe('斩天同盟');
+    expect(lateFactions.find((f) => f.id === 'mortal_realm')?.standingLabel).toBe('红尘守灯人');
+
+    // 4. 九州疆域志与六境长生阶梯正确高亮当前所处与下一大关
+    const regionsAct4 = getWorldRegions({ ...base, act: 'act4' });
+    expect(regionsAct4.filter((r) => r.status === 'current').length).toBeGreaterThanOrEqual(1);
+    const ladderCore = getRealmLadder({ ...base, realm: 'golden_core' }, CONTENT_REGISTRY);
+    expect(ladderCore.find((t) => t.id === 'golden_core')?.status).toBe('current');
+    expect(ladderCore.find((t) => t.id === 'nascent_soul')?.status).toBe('next');
+
+    // 5. 跨卷开篇「前尘余波」简报仅在开篇场景出现，并准确汇总上卷抉择与错过后果
+    expect(getActTransitionEcho(base, 'act2_hub', CONTENT_REGISTRY)).toBeNull();
+    const act3Echo = getActTransitionEcho(
+      {
+        ...base,
+        act: 'act3',
+        flags: {
+          foundation_grade: 'sword_ancient',
+          su_zhiwei_saved_longlife: true,
+          missed_thread_blood_pill: true,
+        },
+      },
+      'act3_opening',
+      CONTENT_REGISTRY
+    );
+    expect(act3Echo).not.toBeNull();
+    expect(act3Echo?.bullets.join('\n')).toContain('太古剑基');
+    expect(act3Echo?.bullets.join('\n')).toContain('九转延寿露');
+    expect(act3Echo?.bullets.join('\n')).toContain('青岚血丹局');
+  });
+
+  it('Cycle 20 专项回归：防剧透迷雾、雅阁阶段门禁、前尘余波修复、负寿提示、死手校对、道侣决裂清理与 A/B/D 文风定稿', () => {
+    const base = createInitialState(makeProfile(), CONTENT_REGISTRY);
+
+    // 1. P0-1: 首回合零剧透（天机勘验、六方势力、疆域志、六境阶梯均不提前泄露中后期谜底）
+    const invAct1 = getInvestigationProgress(base, CONTENT_REGISTRY);
+    const invAct1Text = invAct1.stages.map((s) => `${s.title} ${s.desc}`).join('\n');
+    expect(invAct1Text).not.toContain('牧灵骗局');
+    expect(invAct1Text).not.toContain('收割大期');
+    expect(invAct1Text).not.toContain('天门九枢');
+    expect(invAct1Text).not.toContain('灵根牧种');
+
+    const facAct1Text = getFactionStandings(base)
+      .map((f) => `${f.name} ${f.category} ${f.region} ${f.powerStatus} ${f.summary}`)
+      .join('\n');
+    expect(facAct1Text).not.toContain('兄长失踪');
+    expect(facAct1Text).not.toContain('转运井');
+    expect(facAct1Text).not.toContain('槐阴');
+
+    const regAct1Text = getWorldRegions(base)
+      .map((r) => `${r.name} ${r.desc}`)
+      .join('\n');
+    expect(regAct1Text).not.toContain('九剑尊血战');
+    expect(regAct1Text).not.toContain('伪天门');
+    expect(regAct1Text).not.toContain('斩天四代');
+
+    const ladderAct1Text = getRealmLadder(base, CONTENT_REGISTRY)
+      .map((t) => t.desc)
+      .join('\n');
+    expect(ladderAct1Text).not.toContain('伪天门');
+
+    // 2. P0-2: 仙缘雅阁卷一/卷六门禁 + 未重塑苍溟残魂严禁实体醉酒抱臂
+    const act1HighAff: GameState = {
+      ...base,
+      act: 'act1',
+      companions: {
+        ...base.companions,
+        cang_ming: {
+          met: true,
+          affection: 80,
+          stance: 'bonded',
+          stage: 2,
+          chronicle: [],
+          bondType: 'dao_partner',
+          milestoneStage: 1,
+        },
+      },
+      daoPartnerId: 'cang_ming',
+    };
+    expect(canTriggerMilestone1(act1HighAff, 'cang_ming')).toBe(false);
+    expect(canCommitBond(act1HighAff, 'cang_ming', 'dao_partner').ok).toBe(false);
+
+    const ghostCmAct2: GameState = { ...act1HighAff, act: 'act2' };
+    const ghostLecture = performSanctuaryActivity(ghostCmAct2, 'cang_ming', 'cm_sword_lecture');
+    expect(ghostLecture.ok).toBe(true);
+    expect(ghostLecture.paragraphs.join('\n')).toContain('焦黑断玉');
+    expect(ghostLecture.paragraphs.join('\n')).not.toContain('抱臂冷哼');
+    expect(ghostLecture.paragraphs.join('\n')).not.toContain('搬砖');
+
+    const ghostRes = performSanctuaryActivity(ghostCmAct2, 'cang_ming', 'cm_ancient_resonance');
+    expect(ghostRes.ok).toBe(true);
+    expect(ghostRes.paragraphs.join('\n')).toContain('焦黑断玉');
+    expect(ghostRes.paragraphs.join('\n')).not.toContain('两坛烈酒');
+
+    const act6Sanct: GameState = { ...ghostCmAct2, act: 'act6' };
+    expect(getSanctuaryActivities(act6Sanct, 'cang_ming')).toHaveLength(0);
+    expect(performSanctuaryActivity(act6Sanct, 'cang_ming', 'cm_sword_lecture').ok).toBe(false);
+
+    // 3. P0-3 & P0-4: 卷二开篇前尘余波生效 + 卷三开篇不再误写「二十载」
+    const act2Echo = getActTransitionEcho(
+      { ...base, act: 'act2', tags: [...base.tags, 'qingyun_outer'] },
+      'act2_opening_qingyun',
+      CONTENT_REGISTRY
+    );
+    expect(act2Echo).not.toBeNull();
+    expect(act2Echo?.bullets.join('\n')).toContain('青云剑宗');
+
+    const act3EchoFixed = getActTransitionEcho(
+      {
+        ...base,
+        act: 'act3',
+        ageMonths: 26 * 12,
+        flags: { su_zhiwei_saved_longlife: true },
+      },
+      'act3_opening',
+      CONTENT_REGISTRY
+    );
+    expect(act3EchoFixed?.actBanner).toBe('卷三启幕 · 筑基前尘余波');
+    expect(act3EchoFixed?.bullets.join('\n')).not.toContain('二十载');
+
+    // 4. P0-5 & P0-6: 卷四商战决策前不提前宣告天机垮台 + 保留用户选定的「我自替你守之」史传名句 + 旧词清零
+    const war2Intro = resolveParagraphs(CONTENT_REGISTRY.scenes.act4_arc_world_war_2.paragraphs, {
+      ...base,
+      act: 'act4',
+      flags: { act4_war_intel: 'xie' },
+    }).join('\n');
+    expect(war2Intro).not.toContain('金融霸权在一夜之间彻底土崩瓦解');
+
+    const war2CoupStep = playStep(
+      {
+        ...base,
+        act: 'act4',
+        currentSceneId: 'act4_arc_world_war_2',
+        companions: {
+          ...base.companions,
+          xie_wujiu: { met: true, affection: 65, stance: 'confidant', stage: 3, chronicle: [] },
+        },
+      },
+      'war2_back_xie_coup'
+    );
+    expect(war2CoupStep.afterChoice.pendingTransition?.paragraphs.join('\n')).toContain('我自替你守之');
+    expect(CONTENT_REGISTRY.tags.tianji_nemesis.desc).not.toContain('抽灵支阵');
+
+    // 5. P0-8: 道侣决裂或断玉永封后自动清空 daoPartnerId 与 bondType
+    const partnerBroken = applyEffect(
+      {
+        ...base,
+        act: 'act4',
+        daoPartnerId: 'shen_qingshuang',
+        companions: {
+          ...base.companions,
+          shen_qingshuang: {
+            met: true,
+            affection: 90,
+            stance: 'bonded',
+            bondType: 'dao_partner',
+            stage: 4,
+            chronicle: [],
+          },
+        },
+      },
+      { companionUpdates: { shen_qingshuang: { setStance: 'estranged' } } },
+      CONTENT_REGISTRY
+    ).state;
+    expect(partnerBroken.daoPartnerId).toBeUndefined();
+    expect(partnerBroken.companions.shen_qingshuang.bondType).toBe('none');
+    expect(isActiveDaoPartner(partnerBroken, 'shen_qingshuang')).toBe(false);
+
+    const sealedPartner = applyEffect(
+      {
+        ...base,
+        act: 'act4',
+        daoPartnerId: 'cang_ming',
+        companions: {
+          ...base.companions,
+          cang_ming: {
+            met: true,
+            affection: 90,
+            stance: 'bonded',
+            bondType: 'dao_partner',
+            stage: 4,
+            chronicle: [],
+          },
+        },
+      },
+      { setFlags: { act4_cangming_sealed: true } },
+      CONTENT_REGISTRY
+    ).state;
+    expect(sealedPartner.daoPartnerId).toBeUndefined();
+    expect(sealedPartner.companions.cang_ming.bondType).toBe('none');
+
+    // 6. P0-9: 负寿元提示不再写成「寿元增延 -8 载」，且买通命牌堂杂役不再白送死手威慑
+    const negLife = applyEffect(base, { lifespanBonus: -8 }, CONTENT_REGISTRY).state;
+    expect(negLife.recentNotices.join('\n')).toContain('寿元折损 8 载');
+    expect(negLife.recentNotices.join('\n')).not.toContain('寿元增延 -8');
+    expect(
+      getOvermatchProfile({ ...base, flags: { sword_bribed_guard: true } }).deadmanSwitches
+    ).toHaveLength(0);
+
+    // 7. P0-10 & P1-7: 跨卷未完主线自动标记 missed 且卷二奇遇绝不复活已错过大势
+    const afterActJump = applyEffect(
+      {
+        ...base,
+        act: 'act2',
+        activeThreads: ['thread_sword_trial', 'thread_ancient_vein'],
+        completedThreads: ['thread_sword_trial'],
+      },
+      { setAct: 'act3' },
+      CONTENT_REGISTRY
+    ).state;
+    expect(afterActJump.flags.missed_thread_ancient_vein).toBe(true);
+    expect(afterActJump.activeThreads).not.toContain('thread_ancient_vein');
+
+    const omenAfterMiss = playStep(
+      {
+        ...base,
+        act: 'act2',
+        tags: [...base.tags, 'spirit_eyes'],
+        flags: { missed_thread_ancient_vein: true },
+        currentSceneId: 'rand_act2_sky_omen',
+      },
+      'r2_omen_eye'
+    ).afterCommit;
+    expect(omenAfterMiss.activeThreads).not.toContain('thread_ancient_vein');
+
+    // 8. P0-11 & P0-12: 玩家叛宗不连坐误标沈清霜叛宗；敌对苍溟在古战场不显示指路选项
+    const rebelPlayerOnly: GameState = {
+      ...base,
+      act: 'act4',
+      tags: [...base.tags, 'sect_rebel'],
+      flags: {},
+      companions: {
+        ...base.companions,
+        shen_qingshuang: { met: true, affection: 40, stance: 'confidant', stage: 2, chronicle: [] },
+      },
+    };
+    const shenTitle =
+      typeof CONTENT_REGISTRY.companions.shen_qingshuang.title === 'function'
+        ? CONTENT_REGISTRY.companions.shen_qingshuang.title(rebelPlayerOnly)
+        : CONTENT_REGISTRY.companions.shen_qingshuang.title;
+    expect(shenTitle).toBe('青云剑宗内门首座');
+
+    const hostileCmSoul = getResolvedChoices(
+      {
+        ...base,
+        act: 'act3',
+        currentSceneId: 'act3_arc_soul_1',
+        companions: {
+          ...base.companions,
+          cang_ming: { met: true, affection: -35, stance: 'rival', stage: 2, chronicle: [] },
+        },
+      },
+      CONTENT_REGISTRY.scenes.act3_arc_soul_1,
+      CONTENT_REGISTRY
+    );
+    expect(hostileCmSoul.some((c) => c.id === 'soul1_follow_cangming')).toBe(false);
+
+    // 9. P2: 闭关模式不泄露原始数字阈值
+    const blindAct2 = getActProgressSnapshot({ ...base, act: 'act2', actBeat: 1, might: 22 }, false);
+    expect(blindAct2.breakthroughProgressText).not.toContain('1/3');
+    expect(blindAct2.breakthroughProgressText).not.toContain('当前 22');
+  });
+
+  it('Cycle 21 专项回归：盲玩实测发现的 P0/P1 全闭环（凡人道侣不并肩天门、转运井线索零幻觉、无灵新世重逢尾声、雅阁高卷与鸿书、地脉越阶计分与防抢跑剧透）', () => {
+    const base = createInitialState(makeProfile(), CONTENT_REGISTRY);
+
+    // 1. P0-1: 健在凡人道侣苏知微在卷五/卷六「前尘余波」绝不写成“并肩迎向天门”
+    const suPartnerAct6: GameState = {
+      ...base,
+      act: 'act6',
+      realm: 'deity_transform',
+      ageMonths: 88 * 12,
+      daoPartnerId: 'su_zhiwei',
+      flags: { su_zhiwei_saved_longlife: true },
+      companions: {
+        ...base.companions,
+        su_zhiwei: {
+          met: true,
+          affection: 120,
+          stance: 'bonded',
+          bondType: 'dao_partner',
+          stage: 4,
+          chronicle: [],
+        },
+      },
+    };
+    const act6Echo = getActTransitionEcho(suPartnerAct6, 'act6_sky_gate', CONTENT_REGISTRY);
+    expect(act6Echo?.bullets.join('\n')).toContain('青州道侣【苏知微】');
+    expect(act6Echo?.bullets.join('\n')).not.toContain('并肩迎向天门');
+
+    // 2. P0-2: 卷三总账堂仅比对玩家真实拿过的血丹/古脉物证，绝不幻觉未走古脉的落尘玉屑
+    const bloodOnlyChamber = resolveParagraphs(
+      CONTENT_REGISTRY.scenes.act3_arc_chamber_2.paragraphs,
+      { ...base, act: 'act3', truthClues: ['clue_blood_pill_dust'] }
+    ).join('\n');
+    expect(bloodOnlyChamber).toContain('青岚血丹丹核里的灰白微尘');
+    expect(bloodOnlyChamber).not.toContain('青州地底逆阵剥落的落尘玉屑');
+
+    // 3. P0-3: 【无灵新世】为结发道侣苏知微补写竹篱白发重逢，并为生死挚交谢无咎补写携茶叙旧
+    const mortalPartnerEp = CONTENT_REGISTRY.endings.ending_mortal_new_era
+      .epilogue({
+        ...suPartnerAct6,
+        companions: {
+          ...suPartnerAct6.companions,
+          xie_wujiu: {
+            met: true,
+            affection: 95,
+            stance: 'bonded',
+            bondType: 'sworn',
+            stage: 4,
+            chronicle: [],
+          },
+        },
+      })
+      .join('\n');
+    expect(mortalPartnerEp).toContain('你可算能陪我一起慢慢老了');
+    expect(mortalPartnerEp).toContain('青州竹舍蹭两碗桂花酒');
+
+    // 4. P1-4: 雅阁高卷正文独立、卷四/五苏知微改为千里驿札不瞬移、四人挚交各有专属誓词、谢 M1 后主线不重报“首次吐露”
+    const xieHighAct = performSanctuaryActivity(
+      {
+        ...base,
+        act: 'act4',
+        companions: {
+          ...base.companions,
+          xie_wujiu: { met: true, affection: 60, stance: 'confidant', stage: 3, chronicle: [] },
+        },
+      },
+      'xie_wujiu',
+      'xie_chess_ledger'
+    );
+    expect(xieHighAct.title).toBe('暗楼推演 · 九州商局');
+    expect(xieHighAct.paragraphs.join('\n')).toContain('七十二城');
+
+    const suRemoteAct = performSanctuaryActivity(
+      {
+        ...base,
+        act: 'act4',
+        flags: { su_zhiwei_saved_longlife: true },
+        ageMonths: 55 * 12,
+        companions: {
+          ...base.companions,
+          su_zhiwei: { met: true, affection: 60, stance: 'confidant', stage: 3, chronicle: [] },
+        },
+      },
+      'su_zhiwei',
+      'su_brew_tea'
+    );
+    expect(suRemoteAct.title).toBe('青州驿札 · 隔空校典');
+    expect(suRemoteAct.paragraphs.join('\n')).toContain('驿马');
+
+    const xieSwornRes = commitCompanionBond(
+      {
+        ...base,
+        act: 'act3',
+        companions: {
+          ...base.companions,
+          xie_wujiu: {
+            met: true,
+            affection: 80,
+            stance: 'confidant',
+            milestoneStage: 1,
+            stage: 3,
+            chronicle: [],
+          },
+        },
+      },
+      'xie_wujiu',
+      'sworn'
+    );
+    expect(xieSwornRes.title).toBe('暗楼铁誓 · 肝胆同契');
+    expect(xieSwornRes.paragraphs.join('\n')).toContain('玄铁算珠');
+
+    const xieBloodAfterM1 = playStep(
+      {
+        ...base,
+        act: 'act2',
+        currentSceneId: 'act2_arc_blood_1',
+        companions: {
+          ...base.companions,
+          xie_wujiu: {
+            met: true,
+            affection: 40,
+            stance: 'confidant',
+            milestoneStage: 1,
+            stage: 1,
+            chronicle: [],
+          },
+        },
+      },
+      'blood1_partner_xie'
+    ).afterCommit;
+    expect(xieBloodAfterM1.companions.xie_wujiu.chronicle.join('\n')).not.toContain('首次对你吐露');
+
+    // 5. P1-5: 越阶底蕴正确计入地脉道基/地脉金丹/残缺锁天印/九州灵脉契
+    const veinProfile = getOvermatchProfile({
+      ...base,
+      act: 'act4',
+      realm: 'golden_core',
+      flags: { foundation_grade: 'merchant_vein', core_grade: 'vein_core' },
+      relics: ['broken_sky_seal', 'spirit_vein_deed'],
+    });
+    expect(veinProfile.crossRealmPower).toBeGreaterThanOrEqual(58);
+    expect(veinProfile.powerSources).toContain('地脉阵道道基');
+    expect(veinProfile.powerSources).toContain('九州地脉金丹');
+    expect(veinProfile.powerSources).toContain('残缺锁天印');
+
+    // 6. P1-6: 卷一苏知微/未遇苍溟小传零抢跑剧透、卷三 0/3 阶段三勘验不露「牧灵骗局」、假丹选项不露「买个教训」
+    const suBioAct1 =
+      typeof CONTENT_REGISTRY.companions.su_zhiwei.bio === 'function'
+        ? CONTENT_REGISTRY.companions.su_zhiwei.bio(base)
+        : CONTENT_REGISTRY.companions.su_zhiwei.bio;
+    expect(suBioAct1).not.toContain('白发却爬上了她眉梢');
+
+    const cmBioUnmet =
+      typeof CONTENT_REGISTRY.companions.cang_ming.bio === 'function'
+        ? CONTENT_REGISTRY.companions.cang_ming.bio(base)
+        : CONTENT_REGISTRY.companions.cang_ming.bio;
+    expect(cmBioUnmet).not.toContain('长明大劫');
+
+    const invAct3ZeroStage3 = getInvestigationProgress(
+      {
+        ...base,
+        act: 'act3',
+        truthClues: ['clue_blood_pill_dust', 'clue_mortal_blindspot', 'clue_vein_drain'],
+      },
+      CONTENT_REGISTRY
+    );
+    expect(invAct3ZeroStage3.stages.find((s) => s.stage === 'testimony')?.desc).not.toContain(
+      '牧灵骗局'
+    );
+
+    const fakePillChoice = CONTENT_REGISTRY.scenes.rand_act1_fake_pill.choices.find(
+      (c) => c.id === 'r1_pill_buy_gamble'
+    );
+    const fakePillTags = Array.isArray(fakePillChoice?.insightTags) ? fakePillChoice.insightTags : [];
+    expect(fakePillTags).not.toContain('买个教训');
+  });
+
+  it('Cycle 22 专项回归：全量出戏文本净化、错别字修复、时空流畅度与名句保留', () => {
+    // 1. 递归扫描 CONTENT_REGISTRY 全部文本与函数体，确保 S/A 级出戏热词与错别字清零
+    const forbiddenTerms = [
+      '不讲武德',
+      '怂货',
+      '算盘精',
+      '辩经',
+      '金字塔尖',
+      '平仓放药',
+      '撤单止损',
+      '双剑合壁',
+      '出手果绝',
+      '拜把子要斩鸡头',
+      '平辈兄弟',
+      '算你小子懂孝敬',
+      '从天庭嘴里',
+      '真元微操',
+      '先富起来',
+      '金丹大忙人',
+      '倒计时',
+      '证伪',
+      '证据链',
+      '折现',
+      '实打实',
+      '零耗时',
+      '低吸高抛',
+      '八五折',
+      '灵石本位崩盘',
+      '退婚庚帖宿缘回收',
+      '荒庙旧符伏笔回收',
+    ];
+
+    const visited = new Set<unknown>();
+    const corpusChunks: string[] = [];
+    const collectText = (node: unknown) => {
+      if (node == null) return;
+      if (typeof node === 'string') {
+        corpusChunks.push(node);
+        return;
+      }
+      if (typeof node === 'function') {
+        const cleaned = node
+          .toString()
+          .replace(/\/\*[\s\S]*?\*\//g, '')
+          .replace(/\/\/[^\n]*/g, '');
+        corpusChunks.push(cleaned);
+        return;
+      }
+      if (typeof node === 'object') {
+        if (visited.has(node)) return;
+        visited.add(node);
+        if (Array.isArray(node)) {
+          for (const item of node) collectText(item);
+        } else {
+          for (const val of Object.values(node as Record<string, unknown>)) {
+            collectText(val);
+          }
+        }
+      }
+    };
+    collectText(CONTENT_REGISTRY);
+    const fullCorpus = corpusChunks.join('\n');
+    for (const term of forbiddenTerms) {
+      expect(fullCorpus, `正文注册表中不应再出现出戏词或错别字「${term}」`).not.toContain(term);
+    }
+
+    // 2. 卷三黑柏孤岛重复养魂木不再出现对话中途瞬移黑市折现
+    const base = createInitialState(makeProfile(), CONTENT_REGISTRY);
+    const soulDup = playStep(
+      {
+        ...base,
+        act: 'act3',
+        realm: 'foundation_mid',
+        relics: ['soul_nourishing_wood', 'charred_jade_relic'],
+        currentSceneId: 'act3_arc_soul_2',
+        companions: {
+          ...base.companions,
+          cang_ming: { met: true, affection: 20, stance: 'stranger', stage: 2, chronicle: [] },
+        },
+      },
+      'soul2_seize_wood_for_self'
+    );
+    const soulText = (soulDup.afterChoice.pendingTransition?.paragraphs ?? []).join('\n');
+    expect(soulText).not.toContain('折现');
+    expect(soulText.indexOf('归谁用，由我说了算')).toBeGreaterThan(-1);
+    expect(soulText.indexOf('暗兑了三百二十灵石')).toBeGreaterThan(
+      soulText.indexOf('归谁用，由我说了算')
+    );
+
+    // 3. 卷二飞升崖重复筑基丹拆分为独立收尾段，不打断崖畔决裂情绪
+    const swordDup = playStep(
+      {
+        ...base,
+        act: 'act2',
+        relics: ['foundation_pill'],
+        currentSceneId: 'act2_arc_sword_2',
+      },
+      'sword2_betray_for_pill'
+    );
+    const swordParas = swordDup.afterChoice.pendingTransition?.paragraphs ?? [];
+    expect(swordParas.length).toBeGreaterThanOrEqual(3);
+    expect(swordParas[1]).not.toContain('一百八十灵石');
+    expect(swordParas[2]).toContain('易得一百八十灵石');
+
+    // 4. 保留用户定稿的文言高潮名句「人间这一卷公账，我自替你守之」
+    const warVictory = playStep(
+      {
+        ...base,
+        act: 'act4',
+        realm: 'golden_core',
+        currentSceneId: 'act4_arc_world_war_2',
+        flags: { act4_war_intel: 'xie' },
+        companions: {
+          ...base.companions,
+          xie_wujiu: { met: true, affection: 65, stance: 'confidant', stage: 3, chronicle: [] },
+        },
+      },
+      'war2_back_xie_coup'
+    );
+    expect((warVictory.afterChoice.pendingTransition?.paragraphs ?? []).join('\n')).toContain(
+      '人间这一卷公账，我自替你守之'
+    );
+
+    // 5. 仙缘雅阁净化验证：苏知微/苍溟结义去现代词且男女称谓通用、沈清霜「双剑合璧」无错字
+    const suSworn = commitCompanionBond(
+      {
+        ...base,
+        act: 'act2',
+        companions: {
+          ...base.companions,
+          su_zhiwei: {
+            met: true,
+            affection: 82,
+            stance: 'confidant',
+            milestoneStage: 1,
+            stage: 2,
+            chronicle: [],
+          },
+        },
+      },
+      'su_zhiwei',
+      'sworn'
+    );
+    const suSwornText = suSworn.paragraphs.join('\n');
+    expect(suSwornText).toContain('结金兰要设香案、歃血为盟');
+    expect(suSwornText).not.toContain('拜把子');
+
+    const cmSworn = commitCompanionBond(
+      {
+        ...base,
+        act: 'act4',
+        tags: ['cangming_reborn'],
+        companions: {
+          ...base.companions,
+          cang_ming: {
+            met: true,
+            affection: 82,
+            stance: 'confidant',
+            milestoneStage: 1,
+            stage: 4,
+            chronicle: [],
+          },
+        },
+      },
+      'cang_ming',
+      'sworn'
+    );
+    const cmSwornText = cmSworn.paragraphs.join('\n');
+    expect(cmSwornText).toContain('平辈剑友');
+    expect(cmSwornText).not.toContain('平辈兄弟');
+
+    const shenSwornState: GameState = {
+      ...base,
+      act: 'act3',
+      companions: {
+        ...base.companions,
+        shen_qingshuang: {
+          met: true,
+          affection: 85,
+          stance: 'bonded',
+          milestoneStage: 2,
+          bondType: 'sworn',
+          stage: 4,
+          chronicle: [],
+        },
+      },
+    };
+    const shenActs = getSanctuaryActivities(shenSwornState, 'shen_qingshuang');
+    expect(shenActs.some((a) => a.label.includes('双剑合璧'))).toBe(true);
+    expect(shenActs.some((a) => a.label.includes('双剑合壁'))).toBe(false);
+    const shenDualRes = performSanctuaryActivity(
+      shenSwornState,
+      'shen_qingshuang',
+      'shen_dual_cultivate'
+    );
+    expect(shenDualRes.title).toContain('双剑合璧');
+    expect(shenDualRes.title).not.toContain('双剑合壁');
+
+    // 6. 世局灵脉全六卷改用中文成数，不再混用阿拉伯百分号
+    for (const act of ['act1', 'act2', 'act3', 'act4', 'act5', 'act6'] as const) {
+      const climate = getWorldClimateSnapshot({ ...base, act });
+      expect(climate.veinLabel).not.toContain('%');
+      expect(climate.skyStatus).not.toContain('倒计时');
+    }
+    expect(getWorldClimateSnapshot({ ...base, act: 'act2' }).veinLabel).toContain('约余四成半');
+    expect(getWorldClimateSnapshot({ ...base, act: 'act4' }).veinLabel).toContain('尚余不足二成');
   });
 });

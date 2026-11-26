@@ -1,6 +1,11 @@
 import { GameState, SceneDefinition } from '../engine/types';
 import { toChineseYearNumber, yearsSinceAgeMonths } from '../engine/time';
 import { isSuZhiweiAlive } from './companions';
+import {
+  canCommitMajorArc,
+  getRemainingMajorArcSlots,
+  isMajorArcMissed,
+} from '../engine/systems';
 
 function qiRealmLabel(realm: GameState['realm']): string {
   if (realm === 'qi_mid') return '炼气中期';
@@ -35,7 +40,7 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
     location: '青岚城西 · 租来的石室',
     paragraphs: [
       '城外风声再乱，终究要靠自身底蕴压阵。你合上木栓，在蒲团上盘膝坐定，打算用这一季光阴先把气脉理顺。',
-      '凡胎开窍前，你可以省钱硬熬，也可以花灵石借灵气，或是按手头奇物与剑意另辟蹊径。',
+      '凡胎开窍前，你可以省下灵石水磨硬熬，也可以花灵石焚香催窍；若身具剑意或沙场底子，亦可往城西荒坡以剑砺气。',
     ],
     choices: [
       {
@@ -93,7 +98,7 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
           trackActionKey: 'cultivate',
         },
         outcome: [
-          '每日五更你都在荒坡对着枯松出剑千次。三个月下来，虎口结出硬茧，收剑时风声却比先前干净利落得多。',
+          '每日五更你都在荒坡对着枯松出剑千次。三个月下来，掌心磨出硬茧，收剑时风声却比先前干净利落得多。',
           '几名路过的巡山弟子远远驻足看了半晌，眼神里多了几分审视。',
         ],
         outcomeContinueLabel: '擦剑归城',
@@ -256,7 +261,7 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
             s.tags.includes('origin_herbalist')
               ? '山里的背阴崖你闭着眼都能摸着。回春堂掌柜验过你背回来的青霜叶，成色齐整得挑不出毛病，痛快加赏，一共点给你七十块灵石。'
               : '你在北山绝壁间摸爬滚打近两月，磨破了两双草鞋，总算凑齐一整篓品相过关的青霜叶，从回春堂掌柜手里换来四十五块灵石。',
-          '攥着实打实的工钱走出药铺，腰杆硬气了不少。',
+          '攥着沉甸甸的酬石走出药铺，腰杆硬气了不少。',
         ],
         outcomeContinueLabel: '揣好灵石，回到青岚街市',
         bridgeNote: '替回春堂采药交差，赚得一笔实惠灵石。',
@@ -305,7 +310,7 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
         },
         outcome: [
           '三更天，雨停。你避开巡城耳目将飘着甜腥气的蜡匣塞进破井石缝，次日天未亮，门缝下便滑进装着八十灵石的灰布袋。银货两讫。',
-          '匣里装的多半脱不开近来疯传的暗市血丹。钱到手了，心里的警惕也提了起来。',
+          '匣里装的多半脱不开近来疯传的暗市血丹。灵石到手了，心里的警惕也提了起来。',
         ],
         outcomeContinueLabel: '收起灰布袋，返回青岚',
         bridgeNote: '暗巷跑腿赚进八十灵石，匣中甜腥气让你对暗市生出几分防备。',
@@ -333,7 +338,7 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
         id: 'a2_job_beast',
         label: '揭下清剿黑松岭妖狼的悬赏，凭实力换赏金与妖丹',
         requirement: { minMight: 38, lockReason: '需修为实力 38' },
-        insightTags: ['实力换大钱', '声望与修为'],
+        insightTags: ['实力换厚石', '声望与修为'],
         effect: {
           timeMonths: 4,
           spiritStones: 115,
@@ -344,7 +349,7 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
         },
         outcome: [
           (s) =>
-            s.tags.includes('qingyun_outer')
+            s.tags.includes('qingyun_outer') && !s.flags.qingyun_elders_hostile
               ? '黑松岭雾深林密，你布下暗桩连追三夜，终将那头祸害药农的铁背妖狼斩于涧底。执事堂验过狼首与妖丹，当场拨付一百一十五块灵石，并在外门簿上记了你一笔功劳。'
               : '黑松岭雾深林密，你布下暗桩连追三夜，终将那头祸害药农的铁背妖狼斩于涧底。执事堂验过狼首与妖丹，当场按青岚悬赏榜结清一百一十五块灵石赏银。',
         ],
@@ -356,7 +361,7 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
         id: 'a2_job_appraise',
         label: '受暗市牙行聘请，替大户掌眼鉴定一批古脉出土奇物',
         requirement: { minMind: 42, lockReason: '需心境定力 42' },
-        insightTags: ['心境换大钱', '坊市行情动向'],
+        insightTags: ['眼力换厚石', '坊市行情动向'],
         effect: (s) => ({
           timeMonths: 3,
           spiritStones: s.tags.includes('merchant_manual') ? 135 : 95,
@@ -367,7 +372,7 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
           setFlags: { qinglan_market_report: true },
         }),
         outcome: [
-          '烛火微摇。你逐一摩挲十几件沾泥铜器与残简，干脆利落剔出三件做旧赝品替雇主保住数百灵石本钱，对方大喜付过重酬，席间还漏出大坊调价的口风。眼力值钱。',
+          '烛火微摇。你逐一摩挲十几件沾泥铜器与残简，干脆利落剔出三件做旧赝品替雇主保住数百灵石本钱，对方大喜付过重酬，席间还漏出大坊调价的口风。好眼力，便是立身之本。',
         ],
         outcomeContinueLabel: '收好润笔归返',
         bridgeNote: '替牙行掌眼识破赝品，不仅赚得丰厚灵石，也摸清了近期坊市风向。',
@@ -432,7 +437,7 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
         label: '花二十灵石请药行老伙计吃酒，摸清近季坊市涨跌门道',
         visible: (s) => !s.flags.a1_intel_market_bought,
         requirement: { minSpiritStones: 20, lockReason: '需灵石 20' },
-        insightTags: ['消耗灵石', '解锁行情风声', '心境'],
+        insightTags: ['消耗灵石', '探得行情风声', '心境'],
         effect: {
           timeMonths: 1,
           spiritStones: -20,
@@ -480,7 +485,11 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
     subtitle: '自主谋划 · 撬动暗流',
     location: '青岚暗巷 · 听风酒肆',
     paragraphs: [
-      '青岚暗流交错，等风上门必慢半拍。听风酒肆掌柜只认灵石不认人，只要筹码砸得够响，连宗门禁地与地脉异动都能指条明路。一分钱，一分命。',
+      '青岚暗流交错，等风上门必慢半拍。听风酒肆掌柜只认灵石不认人，只要筹码砸得够响，连宗门禁地与地脉异动都能指条明路。一分灵石，一分活路。',
+      (s) =>
+        getRemainingMajorArcSlots(s, 'act2') === 0
+          ? '掌柜拨着算盘提醒你：“你筑基前已将心力押在两件大风波上，天时不等人，其余城外大势纵买了风声也分身乏术了。眼下倒还能买一份坊市行价密报。”'
+          : `掌柜压低嗓音：“筑基前光阴紧促，你眼下至多还能兼顾${getRemainingMajorArcSlots(s, 'act2') === 1 ? '一' : '两'}桩城外大风波，想撬哪股暗流可得挑准了。”`,
     ],
     choices: [
       {
@@ -491,7 +500,8 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
             : '花五十灵石打听青云宗外门弟子失踪内幕，主动切入试剑暗线',
         visible: (s) =>
           !s.activeThreads.includes('thread_sword_trial') &&
-          !s.completedThreads.includes('thread_sword_trial'),
+          !s.completedThreads.includes('thread_sword_trial') &&
+          canCommitMajorArc(s, 'act2', 'thread_sword_trial'),
         requirement: {
           custom: (s) => {
             const cost = s.relics.includes('qingyun_sword_tally') ? 25 : 50;
@@ -529,7 +539,8 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
         label: '花五十灵石买通暗市眼线，摸清血丹工坊与百宝斋的对峙内情',
         visible: (s) =>
           !s.activeThreads.includes('thread_blood_pill') &&
-          !s.completedThreads.includes('thread_blood_pill'),
+          !s.completedThreads.includes('thread_blood_pill') &&
+          canCommitMajorArc(s, 'act2', 'thread_blood_pill'),
         requirement: { minSpiritStones: 50, lockReason: '需灵石 50' },
         insightTags: ['开启【青岚血丹局】', '谢无咎线索'],
         effect: {
@@ -548,19 +559,29 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
       },
       {
         id: 'hub_cross_open_plague',
-        label: '听闻青州怪疫日重，动身南下杏林一探虚实',
+        label: (s) =>
+          isSuZhiweiAlive(s)
+            ? '听闻青州怪疫日重，动身南下杏林一探虚实'
+            : '动身南下青州杏林旧址，查探当年怪疫尘封医案',
         subtext: (s) =>
-          s.companions.su_zhiwei.met
-            ? '主动介入【青州怪疫】，亦可见故人苏知微。'
-            : '主动介入【青州怪疫】，探查青州城外隔离药棚异象。',
+          !isSuZhiweiAlive(s)
+            ? '主动查探【青州怪疫】旧案（须占本卷一席大势），寻访老杏树下遗留医录。'
+            : s.companions.su_zhiwei.met
+            ? '主动介入【青州怪疫】（须占本卷一席大势），亦可见故人苏知微。'
+            : '主动介入【青州怪疫】（须占本卷一席大势），探查青州城外避疫药棚异象。',
         visible: (s) =>
           !s.activeThreads.includes('thread_qingzhou_plague') &&
-          !s.completedThreads.includes('thread_qingzhou_plague'),
-        insightTags: ['开启【青州怪疫】', '苏知微缘分'],
+          !s.completedThreads.includes('thread_qingzhou_plague') &&
+          canCommitMajorArc(s, 'act2', 'thread_qingzhou_plague'),
+        insightTags: (s) =>
+          isSuZhiweiAlive(s)
+            ? ['开启【青州怪疫】', '苏知微缘分']
+            : ['开启【青州怪疫】', '旧碑遗案'],
         effect: {
           timeMonths: 4,
           setFlags: { arc_plague_active: true },
           activateThreads: ['thread_qingzhou_plague'],
+          commitMajorArc: { act: 'act2', threadId: 'thread_qingzhou_plague' },
         },
         next: 'act2_arc_plague_1',
       },
@@ -572,16 +593,18 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
             : '循青州北麓夜半地鸣与灵气异动，前往探查干涸古脉裂隙',
         subtext: (s) =>
           s.companions.cang_ming.met
-            ? '主动探寻【地底古脉】与苍溟过往。'
-            : '主动探寻青州北麓【地底古脉】，查明灵潮枯竭之异。',
+            ? '主动探寻【地底古脉】（须占本卷一席大势）与苍溟过往。'
+            : '主动探寻青州北麓【地底古脉】（须占本卷一席大势），查明灵潮枯竭之异。',
         visible: (s) =>
           !s.activeThreads.includes('thread_ancient_vein') &&
-          !s.completedThreads.includes('thread_ancient_vein'),
+          !s.completedThreads.includes('thread_ancient_vein') &&
+          canCommitMajorArc(s, 'act2', 'thread_ancient_vein'),
         insightTags: ['开启【青州古脉】', '地脉异动'],
         effect: {
           timeMonths: 4,
           setFlags: { ancient_vein_disturbed: true },
           activateThreads: ['thread_ancient_vein'],
+          commitMajorArc: { act: 'act2', threadId: 'thread_ancient_vein' },
         },
         next: 'act2_arc_vein_1',
       },
@@ -761,7 +784,7 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
         category: 'plan',
         label: '去听风酒肆暗桩买讯，撬开其余暗线或购阅行情密报',
         subtext: '可介入未启风波（试剑 / 血丹 / 怪疫 / 古脉）或花灵石买三行市价密报。',
-        insightTags: ['主动解锁跨线风波', '行情密报'],
+        insightTags: ['暗桩探听跨线风波', '行情密报'],
         next: 'act2_action_intel',
       },
       {
@@ -778,7 +801,7 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
             reason: '青岚山野已踏遍数回，眼下大势紧迫，宜先了结正事或闭关筑基',
           },
         },
-        insightTags: ['随机修仙奇遇', '此间限4次'],
+        insightTags: ['山野行游奇遇', '本卷限四回'],
         effect: (s) => {
           const nextR = nextAct2Realm(s);
           return {
@@ -804,7 +827,7 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
           s.tags.includes('broken_engagement') &&
           !s.flags.engagement_echo_done &&
           s.actBeat >= 1,
-        insightTags: ['退婚庚帖宿缘回收', '心境/灵石回报'],
+        insightTags: ['退婚旧缘应劫', '心境与灵石'],
         effect: {
           timeMonths: 2,
           setFlags: { engagement_echo_done: true },
@@ -820,7 +843,7 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
           s.tags.includes('old_daoist_talisman') &&
           !s.flags.old_talisman_echo_done &&
           s.actBeat >= 1,
-        insightTags: ['荒庙旧符宿缘回收', '心境大进'],
+        insightTags: ['荒庙旧符应劫', '心境大进'],
         effect: {
           timeMonths: 2,
           setFlags: { old_talisman_echo_done: true },
@@ -849,7 +872,9 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
       {
         id: 'hub2_visit_shen',
         label: (s) =>
-          s.companions.shen_qingshuang.met
+          s.flags.shen_saved_from_sect
+            ? '赴山外僻静松崖约见沈清霜'
+            : s.companions.shen_qingshuang.met
             ? '赴松林约见沈清霜'
             : '凭青云身份或引荐口讯，登断剑亭拜会沈清霜',
         visible: (s) =>
@@ -859,7 +884,8 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
           s.companions.shen_qingshuang.stance !== 'estranged' &&
           s.companions.shen_qingshuang.stance !== 'rival' &&
           !s.flags.betrayed_shen_at_stele &&
-          !s.flags.shen_rival_tension,
+          !s.flags.shen_rival_tension &&
+          !isMajorArcMissed(s, 'act2', 'thread_sword_trial'),
         requirement: {
           maxUsesInAct: {
             key: 'visit_shen',
@@ -911,6 +937,11 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
             : '趁青州疫讯南下杏林医馆，拜访那位善治怪热的凡医',
         visible: (s) =>
           isSuZhiweiAlive(s) &&
+          !s.flags.su_zhiwei_fading &&
+          !(
+            Boolean(s.flags.plague_arc_step1) &&
+            s.activeThreads.includes('thread_qingzhou_plague')
+          ) &&
           (s.companions.su_zhiwei.met ||
             Boolean(s.flags.arc_plague_active) ||
             Boolean(s.flags.act1_rumor_plague)),
@@ -986,17 +1017,25 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
         if (s.act === 'act4' && Boolean(s.flags.act4_mortal_truth_found)) {
           return repeatVisit
             ? '再入槐阴茅舍，院檐下已新晒出两竹匾陈皮。两鬓斑白的苏知微递来一只补过口的青瓷碗，笑着招呼：“又抽空绕回来了？阿芸刚熬好小米山药粥，快趁热喝一碗。”'
-            : '穿过山坳推开竹扉，檐下晒满新采的甘草与橘皮。两鬓斑白的苏知微正领着徒弟阿芸整理手抄医册，听见脚步声便笑着招呼：“金丹大忙人还抽得出空来喝碗粗茶？坐罢，刚温好的。”';
+            : '穿过山坳推开竹扉，檐下晒满新采的甘草与橘皮。两鬓斑白的苏知微正领着徒弟阿芸整理手抄医册，听见脚步声便笑着招呼：“贵为金丹真人，倒还抽得出空来喝碗粗茶？坐罢，刚温好的。”';
         }
         if (s.act === 'act4') {
           return repeatVisit
             ? '杏林竹扉未闩，药碾声在院里笃笃作响。两鬓霜白的苏知微见你又来，顺手添了半勺陈皮入壶：“前日刚配好的润肺汤，正好替你散散路途风尘。”'
-            : '再回青州城外杏林，老杏树已荫蔽半院。两鬓霜白的苏知微正低头核对各地捎来的凡人脉案，见你推门便眉眼舒展：“金丹大忙人还记得这座旧院？快进屋暖暖手。”';
+            : '再回青州城外杏林，老杏树已荫蔽半院。两鬓霜白的苏知微正低头核对各地捎来的凡人脉案，见你推门便眉眼舒展：“贵为金丹真人，倒还记得这座旧院？快进屋暖暖手。”';
         }
         if (s.act === 'act3') {
           return repeatVisit
             ? '青州杏林的篱笆墙边新晒着一排姜片。苏知微见你折返，放下药杵浅笑：“怎么又绕路过来了？灶上正煨着红枣粥，坐下歇歇脚罢。”'
             : '多年风雨过去，青州杏林的竹篱修补过几回，苏知微鬓边也添了几缕银丝。听见熟悉脚步，她笑着放下药碾：“{{name}}来了？九州风声这样紧，难得你还记得城外这炉热茶。”';
+        }
+        if (
+          s.act === 'act2' &&
+          (Boolean(s.flags.su_zhiwei_fading) ||
+            (Boolean(s.flags.plague_arc_step1) &&
+              s.activeThreads.includes('thread_qingzhou_plague')))
+        ) {
+          return '竹门半掩，屋内药炉小火微温。苏知微披着厚棉袄靠在榻边调息，见你来时唇边只牵起一丝倦意浅笑：“身子尚虚，招待不周，坐下喝杯温水罢。”';
         }
         if (repeatVisit) {
           return '推开竹门时药碾刚停，苏知微抬头见又是你，眼角弯起一分：“才隔几月便又登门，可是近日吐纳太急了？坐下罢，我刚煮了一壶陈皮姜汤。”';
@@ -1007,18 +1046,21 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
       },
     ],
     choices: [
+      // === 卷一 / 卷二（凡胎、炼气期） ===
       {
         id: 'v_su_gift_herb',
         label: '把行囊里囤的一份【清心草】送给医馆救治病患',
-        visible: (s) => (s.market.holdings.qingxin_herb?.qty ?? 0) > 0,
-        insightTags: ['赠坊市货品', '苏知微大幅好感', '正道与心境'],
+        visible: (s) =>
+          (s.act === 'act1' || s.act === 'act2') &&
+          (s.market.holdings.qingxin_herb?.qty ?? 0) > 0,
+        insightTags: ['赠清心草', '苏知微好感', '正道与心境'],
         effect: (s) => {
           const prev = s.market.holdings.qingxin_herb;
           return {
             timeMonths: 2,
-            mind: s.act === 'act3' || s.act === 'act4' ? 10 : 6,
-            righteous: 8,
-            worldly: 6,
+            mind: 6,
+            righteous: 6,
+            worldly: 5,
             trackActionKey: 'visit_su',
             grantMarketGoods:
               prev && prev.qty > 0
@@ -1029,13 +1071,17 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
               v_su_gift_cold:
                 Boolean(s.flags.left_qingzhou_coldly) &&
                 s.companions.su_zhiwei.affection < 10,
+              v_su_gift_first_meet: !s.companions.su_zhiwei.met,
             },
             companionUpdates: {
               su_zhiwei: {
                 meet: true,
                 markSeen: true,
-                affectionDelta: 14,
-                chronicle: '你专程送来坊市难求的清心草济助医馆，她珍而重之地记在药簿扉页。',
+                affectionDelta: 9,
+                chronicle:
+                  s.act === 'act1'
+                    ? '青岚初年你专程送来清心草济助医馆，她珍而重之地记在药簿扉页。'
+                    : '炼气初年你专程送来清心草济助医馆，她珍而重之地记在药簿扉页。',
               },
             },
           };
@@ -1044,26 +1090,23 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
           (s) =>
             s.flags.v_su_gift_cold
               ? '苏知微愣了一下，接过那捆品相极佳的清心草轻声道谢：“外头药价涨得厉害，医馆正愁断药。多谢仙师还肯念着城里百姓。”'
+              : s.flags.v_su_gift_first_meet
+              ? '苏知微愣了愣，郑重接过那捆品相极佳的清心草温声道谢：“外头药价涨得厉害，医馆正愁断药呢。初次相见便劳{{honorific}}如此慷慨相助，知微替城里病患谢过了。”'
               : '苏知微接过那捆品相极佳的清心草，指尖轻颤：“外头药价涨得厉害，医馆正愁断药呢。你总把最紧要的东西留给我。”',
           '傍晚两人在树荫下分食了一碟桂花糕，你连日奔波攒下的戾气散去大半。',
         ],
-        outcomeContinueLabel: (s) =>
-          s.act === 'act4' && Boolean(s.flags.act4_mortal_truth_found)
-            ? '告别药庐，回到尘途'
-            : '告别杏林，回到尘途',
+        outcomeContinueLabel: '告别杏林，回到尘途',
         bridgeNote: '专程给药庐送去清心草，苏知微的笑意令你道心温润许多。',
         next: returnHubFor,
       },
       {
         id: 'v_su_help_tea',
-        label: (s) =>
-          s.act === 'act3' || s.act === 'act4'
-            ? '收起法器留在小院替她晒药煎茶，静听几桩山野凡尘旧事'
-            : '留下来帮她晒药熬汤、闲话城中见闻',
+        label: '留下来帮她晒药熬汤，闲话青岚城中见闻',
+        visible: (s) => s.act === 'act1' || s.act === 'act2',
         insightTags: ['零花费', '苏知微好感', '心境与红尘'],
-        effect: (s) => ({
+        effect: {
           timeMonths: 2,
-          mind: s.act === 'act3' || s.act === 'act4' ? 9 : 5,
+          mind: 5,
           worldly: 5,
           trackActionKey: 'visit_su',
           setFlags: { act1_rumor_plague: true },
@@ -1071,68 +1114,281 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
             su_zhiwei: {
               meet: true,
               markSeen: true,
-              affectionDelta: 9,
-              chronicle:
-                s.act === 'act4' && Boolean(s.flags.act4_mortal_truth_found)
-                  ? '闲暇时赴槐阴药庐帮她晒药煎茶，度过一段远离战火的安宁光阴。'
-                  : '闲暇时赴杏林帮她晾药烹茶，度过一段远离修仙纷争的安宁光阴。',
+              affectionDelta: 6,
+              chronicle: '早年闲暇时赴杏林帮她晾药烹茶，度过一段远离修仙纷争的安宁光阴。',
             },
           },
-        }),
+        },
         outcome: [
-          (s) =>
-            s.act === 'act4' && Boolean(s.flags.act4_mortal_truth_found)
-              ? '你收起金丹威压，帮她与阿芸把院里几竹匾草药翻晒均匀。听着她们聊起槐阴村农事与乡邻琐闻，外头崩裂的九州战火像隔着另一重山河。'
-              : '你不谈境界也不谈灵石，只卷起袖子帮她把院里几竹匾药材翻晒均匀。苏知微话不多，讲起街坊琐事却格外动听。',
+          '你不谈境界也不谈灵石，只卷起袖子帮她把院里几竹匾药材翻晒均匀。苏知微话不多，讲起街坊琐事却格外动听。',
           '暮色降临时你起身辞行，衣袖间沾满淡淡的草木苦香。',
         ],
-        outcomeContinueLabel: (s) =>
-          s.act === 'act4' && Boolean(s.flags.act4_mortal_truth_found)
-            ? '披着暮色离开药庐'
-            : '披着暮色离开杏林',
+        outcomeContinueLabel: '披着暮色离开杏林',
         bridgeNote: '在药庐帮苏知微晒了一下午草药，心神难得清静。',
         next: returnHubFor,
       },
       {
         id: 'v_su_donate_stones',
-        label: (s) =>
-          s.act === 'act4'
-            ? '留八十灵石添置义诊药材，请她替你施针理顺浑厚丹息'
-            : s.act === 'act3'
-            ? '留八十灵石添置义诊药材，请她替你施针理顺灵液真元'
-            : '留三十灵石贴补穷苦病患的药钱，并请她替你把脉调息',
-        requirement: {
-          custom: (s) => {
-            const cost = s.act === 'act3' || s.act === 'act4' ? 80 : 30;
-            return s.spiritStones >= cost
-              ? { ok: true }
-              : { ok: false, reason: `需灵石 ${cost}` };
-          },
-        },
-        insightTags: ['耗灵石', '苏知微好感', '稳固心境'],
-        effect: (s) => {
-          const isLate = s.act === 'act3' || s.act === 'act4';
-          return {
-            timeMonths: 2,
-            spiritStones: isLate ? -80 : -30,
-            mind: isLate ? 14 : 8,
-            righteous: 6,
-            trackActionKey: 'visit_su',
-            companionUpdates: {
-              su_zhiwei: {
-                meet: true,
-                markSeen: true,
-                affectionDelta: 12,
-                chronicle: '资助医馆药钱，她细心以银针替你疏通修炼滞涩的郁气。',
-              },
+        label: '留三十灵石贴补穷苦病患的药钱，并请她替你把脉调息',
+        visible: (s) => s.act === 'act1' || s.act === 'act2',
+        requirement: { minSpiritStones: 30, lockReason: '需灵石 30' },
+        insightTags: ['耗30灵石', '苏知微好感', '稳固心境'],
+        effect: {
+          timeMonths: 2,
+          spiritStones: -30,
+          mind: 8,
+          righteous: 5,
+          trackActionKey: 'visit_su',
+          companionUpdates: {
+            su_zhiwei: {
+              meet: true,
+              markSeen: true,
+              affectionDelta: 7,
+              chronicle: '资助医馆药钱，她细心以银针替你疏通修炼滞涩的郁气。',
             },
-          };
+          },
         },
         outcome: [
           '苏知微拗不过你，只得收下灵石记作义诊公账，反过来坚持替你号脉施针，将你近期修炼积在胸口的一股燥气疏导得干干净净。',
         ],
         outcomeContinueLabel: '谢过医女，启程归去',
         bridgeNote: '苏知微以银针替你化去胸中郁气，神台清明如洗。',
+        next: returnHubFor,
+      },
+
+      // === 卷三（筑基期 · 二十载杏林脉案与真元温脉） ===
+      {
+        id: 'v_su_act3_pulse_notes',
+        label: (s) =>
+          s.flags.act3_hearth_step1
+            ? '与她共校二十载《无灵脉案》，核验凡人缘何独避灵潮异象'
+            : '与她共校近载青州凡人脉案，核验凡人缘何独避灵潮异象',
+        visible: (s) => s.act === 'act3',
+        insightTags: ['筑基专属', '勘验无灵盲区', '心境大增'],
+        effect: (s) => ({
+          timeMonths: 2,
+          mind: 10,
+          worldly: 6,
+          trackActionKey: 'visit_su',
+          addTruthClues: s.truthClues.includes('clue_mortal_blindspot')
+            ? undefined
+            : ['clue_mortal_blindspot'],
+          companionUpdates: {
+            su_zhiwei: {
+              meet: true,
+              markSeen: true,
+              affectionDelta: 7,
+              chronicle: s.flags.act3_hearth_step1
+                ? '筑基归来与她并灯核校二十载凡人脉案，从烟火医录里辨出天机盲区。'
+                : '筑基归来与她并灯核校近载青州凡人脉案，从烟火医录里辨出天机盲区。',
+            },
+          },
+        }),
+        outcome: [
+          (s) =>
+            s.flags.act3_hearth_step1
+              ? '灯花轻爆。你替她把二十年来青州百余户脉案按有灵根与无灵根拆作两叠——凡沾灵窍者多受地脉枯衰拖累，而彻彻底底无灵根的凡俗老幼竟无一例灵息被蚀。'
+              : '灯花轻爆。你替她把近载青州百余户脉案按有灵根与无灵根拆作两叠——凡沾灵窍者多受地脉枯衰拖累，而彻彻底底无灵根的凡俗老幼竟无一例灵息被蚀。',
+          '苏知微搁下朱笔轻声道：“我瞧不懂你们天上的大道，可脉象不会骗人。无灵之人，好像天然躲在那张大网的眼睛外头。”',
+        ],
+        outcomeContinueLabel: '收拢脉案笔记，辞别杏林',
+        bridgeNote: (s) =>
+          s.flags.act3_hearth_step1
+            ? '并灯核校二十载脉案，你对“无灵盲区”的认识愈发笃实。'
+            : '并灯核校青州凡人脉案，你对“无灵盲区”的认识愈发笃实。',
+        next: returnHubFor,
+      },
+      {
+        id: 'v_su_act3_warm_qi',
+        label: '置办温补药材并以筑基柔和灵液替她驱散积年药寒',
+        visible: (s) => s.act === 'act3',
+        requirement: { minSpiritStones: 60, lockReason: '需灵石 60' },
+        insightTags: ['筑基专属', '耗60灵石', '苏知微好感与心境'],
+        effect: (s) => ({
+          timeMonths: 2,
+          spiritStones: -60,
+          mind: 12,
+          righteous: 6,
+          worldly: 6,
+          trackActionKey: 'visit_su',
+          setFlags: {
+            v_su_act3_was_cold:
+              Boolean(s.flags.left_qingzhou_coldly) &&
+              s.companions.su_zhiwei.affection < 10,
+          },
+          companionUpdates: {
+            su_zhiwei: {
+              meet: true,
+              markSeen: true,
+              affectionDelta: 8,
+              chronicle: '你敛去筑基威压，以极温和灵液替她逐去经年操劳积下的肺腑寒气。',
+            },
+          },
+        }),
+        outcome: [
+          '筑基真元化气为液，本极霸道，你却将其拆作游丝般细软的一缕，顺着她腕脉一点点化开常年守夜煎药攒下的寒郁。',
+          (s) =>
+            s.flags.v_su_act3_was_cold
+              ? '苏知微觉出指尖回暖，垂眸静了片刻，终究替你盛了一盏温好的红枣汤，语气松动半分：“多谢仙师挂念。这许多年过去，你倒还记得城外这间破医馆。”'
+              : '苏知微觉出指尖回暖，轻笑着递来一盏温好的红枣汤：“外头筑基真人个个拿灵压吓人，倒只有你肯把真元拿来当暖炉使。”',
+        ],
+        outcomeContinueLabel: '饮罢热汤，起身告辞',
+        bridgeNote: '以柔和灵液替苏知微驱寒后，你对真元的细微驾驭也更纯熟了一层。',
+        next: returnHubFor,
+      },
+      {
+        id: 'v_su_act3_gift_oil',
+        label: '赠一份【地脉灵膏】供医馆配制保元温脉膏药',
+        visible: (s) =>
+          s.act === 'act3' && (s.market.holdings.spirit_marrow_oil?.qty ?? 0) > 0,
+        insightTags: ['赠地脉灵膏', '苏知微大幅好感', '正道声望'],
+        effect: (s) => {
+          const prev = s.market.holdings.spirit_marrow_oil;
+          return {
+            timeMonths: 2,
+            mind: 10,
+            righteous: 7,
+            renown: 4,
+            trackActionKey: 'visit_su',
+            setFlags: {
+              v_su_act3_was_cold:
+                Boolean(s.flags.left_qingzhou_coldly) &&
+                s.companions.su_zhiwei.affection < 10,
+            },
+            grantMarketGoods:
+              prev && prev.qty > 0
+                ? [{ goodId: 'spirit_marrow_oil', qty: -1, unitCost: prev.avgCost }]
+                : undefined,
+            companionUpdates: {
+              su_zhiwei: {
+                meet: true,
+                markSeen: true,
+                affectionDelta: 10,
+                chronicle: '你将珍贵的地脉灵膏留给杏林医馆调膏救重症，令她满心欢喜。',
+              },
+            },
+          };
+        },
+        outcome: [
+          (s) =>
+            s.flags.v_su_act3_was_cold
+              ? '苏知微揭开青瓷盒盖闻见醇厚药息，微微一怔，眼底冷雾散去半分：“地脉灵膏兑上甘草露，一小盒便能救回十几个肺枯的重病老农……多谢仙师，这份心意我替青州百姓领了。”'
+              : '苏知微揭开青瓷盒盖闻见醇厚药息，眼中亮光一闪：“地脉灵膏兑上甘草露，一小盒便能救回十几个肺枯的重病老农！你总是雪中送炭。”',
+        ],
+        outcomeContinueLabel: '告别药庐，重入风云',
+        bridgeNote: '送出地脉灵膏济世，青州城外百姓与苏知微皆念你的温厚。',
+        next: returnHubFor,
+      },
+
+      // === 卷四（金丹期 · 杏林/槐阴茅舍、阿芸传灯与《无灵医典》） ===
+      {
+        id: 'v_su_act4_teach_ayun',
+        label: (s) =>
+          s.flags.act4_mortal_truth_found
+            ? '敛去金丹威压，陪她与徒弟阿芸于槐阴茅舍辨草煮桂花粥'
+            : '敛去金丹威压，陪她与药庐小徒在青州杏林辨草煮桂花粥',
+        visible: (s) => s.act === 'act4',
+        insightTags: ['金丹专属', '零花费', '心境大增'],
+        effect: (s) => ({
+          timeMonths: 2,
+          mind: 13,
+          worldly: 8,
+          trackActionKey: 'visit_su',
+          companionUpdates: {
+            su_zhiwei: {
+              meet: true,
+              markSeen: true,
+              affectionDelta: 7,
+              chronicle: s.flags.act4_mortal_truth_found
+                ? '金丹之尊隐去锋芒，与她及徒弟阿芸在槐阴茅舍共煮桂花粥、享半日凡尘清欢。'
+                : '金丹之尊隐去锋芒，在青州城外杏林药庐与她共煮桂花粥、享半日凡尘清欢。',
+            },
+          },
+        }),
+        outcome: [
+          (s) =>
+            s.flags.act4_mortal_truth_found
+              ? '外头九州灵矿打得血雨腥风，槐阴村里却只听见阿芸背诵《草木歌》的清脆嗓音。你蹲在檐下替她们剥完两筐新莲子，苏知微端出一锅飘香的桂花小米粥。'
+              : '外头九州灵矿打得血雨腥风，青州城外杏林药庐里却只听见药炉轻沸与小徒背诵《草木歌》的清脆嗓音。你蹲在檐下替她们剥完两筐新莲子，苏知微端出一锅飘香的桂花小米粥。',
+          '一碗热粥落腹，金丹久修攒下的高寒孤寂被这人间灶火暖得融化开来。',
+        ],
+        outcomeContinueLabel: (s) =>
+          s.flags.act4_mortal_truth_found ? '披着夕阳别过茅舍' : '披着夕阳别过杏林',
+        bridgeNote: (s) =>
+          s.flags.act4_mortal_truth_found
+            ? '在槐阴茅舍吃了一碗桂花粥，你愈发懂得此世所护为何物。'
+            : '在青州杏林吃了一碗桂花粥，你愈发懂得此世所护为何物。',
+        next: returnHubFor,
+      },
+      {
+        id: 'v_su_act4_engrave_book',
+        label: (s) =>
+          s.flags.act4_mortal_truth_found
+            ? '出资八十灵石刊刻《无灵医典》百册传世，并借古碑清气涤荡丹煞'
+            : '出资八十灵石刊刻《无灵医典》百册传世，在杏林清风中涤荡丹煞',
+        visible: (s) => s.act === 'act4',
+        requirement: { minSpiritStones: 80, lockReason: '需灵石 80' },
+        insightTags: ['金丹专属', '耗80灵石', '涤血煞与心境'],
+        effect: {
+          timeMonths: 2,
+          spiritStones: -80,
+          mind: 15,
+          righteous: 8,
+          renown: 6,
+          removeTags: ['blood_pill_tainted'],
+          trackActionKey: 'visit_su',
+          companionUpdates: {
+            su_zhiwei: {
+              meet: true,
+              markSeen: true,
+              affectionDelta: 8,
+              chronicle: '你出资替她刊印《无灵医典》散赠九州乡邻，让凡尘医道得以薪火相传。',
+            },
+          },
+        },
+        outcome: [
+          '木版雕成那日，墨香漫了整条村道。苏知微摩挲着首印青皮医典，鬓边银丝在日光下温润发亮：“纵使将来我不在了，青州大夫和后生们也能照着这套方子救活千万人。”',
+          (s) =>
+            s.flags.act4_mortal_truth_found
+              ? '两人并肩立在无灵古碑槐荫下静坐半日，你丹田内残留的躁厉之气尽数澄净。'
+              : '两人并肩立在青州老杏树下静坐半日，药香拂面，你丹田内残留的躁厉之气尽数澄净。',
+        ],
+        outcomeContinueLabel: '带走一册初印医典，启程离去',
+        bridgeNote: '助苏知微刊刻《无灵医典》传世，你神台澄明如镜。',
+        next: returnHubFor,
+      },
+      {
+        id: 'v_su_act4_gift_rubbing',
+        label: '赠一份【前朝残简】与她共参上古草木医方',
+        visible: (s) =>
+          s.act === 'act4' && (s.market.holdings.ancient_rubbing?.qty ?? 0) > 0,
+        insightTags: ['赠前朝残简', '苏知微大幅好感', '心境大增'],
+        effect: (s) => {
+          const prev = s.market.holdings.ancient_rubbing;
+          return {
+            timeMonths: 2,
+            mind: 12,
+            worldly: 7,
+            trackActionKey: 'visit_su',
+            grantMarketGoods:
+              prev && prev.qty > 0
+                ? [{ goodId: 'ancient_rubbing', qty: -1, unitCost: prev.avgCost }]
+                : undefined,
+            companionUpdates: {
+              su_zhiwei: {
+                meet: true,
+                markSeen: true,
+                affectionDelta: 10,
+                chronicle: '你将前朝残简赠她考订上古草木古方，补全了医典末卷空白。',
+              },
+            },
+          };
+        },
+        outcome: [
+          '苏知微就着窗光辨认出残简角落几味失传的凡俗养气古方，惊喜得连连抄录。末了她将一包新焙干桂花塞进你袖中：“下回再忙，也要抽空回来喝茶。”',
+        ],
+        outcomeContinueLabel: '收好干桂花，告别药庐',
+        bridgeNote: '赠前朝残简助她补全古方，药庐情谊历久弥温。',
         next: returnHubFor,
       },
       {
@@ -1168,7 +1424,7 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
         if (s.act === 'act4') {
           return repeatVisit
             ? '再进暗楼，谢无咎连茶杯都已替你倒好，指着墙上新换的九州行价图笑道：“才隔一阵便又登门，看来{{name}}手头又攒下新筹码了？”'
-            : '暗楼里堆满九州各路矿报与银票存根。谢无咎合上玄铁算盘，替你推过一盏浓茶笑道：“金丹真人驾临，今儿个咱们不谈蝇头小利，说说看，哪条灵矿与商路合你胃口？”';
+            : '暗楼里堆满九州各路矿报与银票存根。谢无咎合上玄铁算盘，替你推过一盏浓茶笑道：“金丹真人驾临，今日咱们不谈蝇头小利，说说看，哪条灵矿与商路合你胃口？”';
         }
         if (s.act === 'act3') {
           return repeatVisit
@@ -1182,16 +1438,14 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
       },
     ],
     choices: [
+      // === 卷一 / 卷二（凡胎、炼气期） ===
       {
         id: 'v_xie_market_tip',
-        label: (s) =>
-          s.act === 'act3' || s.act === 'act4'
-            ? '共拆九州灵矿与坊市虚实，顺手联手吃下一笔高阶短差'
-            : '请教近期三行货价虚实，顺手与他做一笔短线拆借套利',
+        label: '请教青岚三行货价虚实，顺手与他做一笔短途转货差价',
+        visible: (s) => s.act === 'act1' || s.act === 'act2',
         insightTags: ['灵石短差', '谢无咎好感', '坊市风声'],
         effect: (s) => {
-          const isLate = s.act === 'act3' || s.act === 'act4';
-          const profit = isLate ? 120 : s.companions.xie_wujiu.affection >= 20 ? 55 : 35;
+          const profit = s.companions.xie_wujiu.affection >= 25 ? 50 : 35;
           const setFlags: Record<string, boolean> =
             s.act === 'act1'
               ? { xie_market_tip: true, act1_heard_blood_pill: true }
@@ -1199,25 +1453,22 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
           return {
             timeMonths: 2,
             spiritStones: profit,
-            renown: isLate ? 6 : 3,
+            renown: 3,
             trackActionKey: 'visit_xie',
             setFlags,
             companionUpdates: {
               xie_wujiu: {
                 meet: true,
                 markSeen: true,
-                affectionDelta: 8,
-                chronicle: '登门百宝斋共论灵市行情，你敏捷的算账眼光颇合他胃口。',
+                affectionDelta: 6,
+                chronicle: '早年登门百宝斋共论青岚行情，你敏捷的算账眼光颇合他胃口。',
               },
             },
           };
         },
         outcome: [
-          (s) =>
-            s.act === 'act3' || s.act === 'act4'
-              ? '谢无咎摊开几份各宗急于脱手的灵砂与古玉抵押单，借百宝总号暗网让你顺手吃下一百二十块灵石的短差，还把九州近期涨跌脉络讲得丝丝入扣。'
-              : '谢无咎随手点出两家急于回笼灵石的小铺，借百宝斋的名头让你转手吃了趟短差，顺带把近来青岚暗市的风向拆解得清清楚楚。',
-          '送出门时他笑道：“跟聪明人打交道就是省劲，下回有大风浪记得先来找我。”',
+          '谢无咎随手点出两家急于周转灵石的小铺，借百宝斋的名头让你转手吃了趟短差，顺带把近来青岚暗市的风向拆解得清清楚楚。',
+          '送出门时他笑道：“跟聪明人打交道就是痛快，下回有大风浪记得先来找我。”',
         ],
         outcomeContinueLabel: '记熟行市，离开百宝斋',
         bridgeNote: '赴百宝斋与谢无咎论商，既赚进一笔短差，也摸清了坊市底细。',
@@ -1225,17 +1476,16 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
       },
       {
         id: 'v_xie_gift_curio',
-        label: (s) =>
-          s.truthClues.includes('clue_tianji_portal')
-            ? '将手头一份【前朝残简】赠他比对旧账，共证长明古篆落款'
-            : '将手头一份【前朝残简】赠他鉴藏，探听他收购古物的缘由',
-        visible: (s) => (s.market.holdings.ancient_rubbing?.qty ?? 0) > 0,
+        label: '将手头一份【前朝残简】赠他鉴藏，探听他收购古物的缘由',
+        visible: (s) =>
+          (s.act === 'act1' || s.act === 'act2') &&
+          (s.market.holdings.ancient_rubbing?.qty ?? 0) > 0,
         insightTags: ['赠前朝残简', '谢无咎大幅好感', '心境与声望'],
         effect: (s) => {
           const prev = s.market.holdings.ancient_rubbing;
           return {
             timeMonths: 2,
-            mind: s.act === 'act3' || s.act === 'act4' ? 9 : 5,
+            mind: 5,
             renown: 4,
             trackActionKey: 'visit_xie',
             grantMarketGoods:
@@ -1246,17 +1496,14 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
               xie_wujiu: {
                 meet: true,
                 markSeen: true,
-                affectionDelta: 16,
+                affectionDelta: 10,
                 chronicle: '你送来一份前朝残简，他摩挲卷角沉默许久，神色比平日多了几分郑重。',
               },
             },
           };
         },
         outcome: [
-          (s) =>
-            s.truthClues.includes('clue_tianji_portal')
-              ? '谢无咎展开残简对着暗账细细比照，折扇收在掌心轻敲桌面：“好东西，纸背这枚古篆印记和天机商行秘窟里的转运封泥同出一源。多谢你替我留心。”'
-              : `谢无咎接过残简细看半晌，嘴角惯常挂着的懒散笑意顿时收了起来：“你在哪儿收的？纸背落款与${s.act === 'act1' || s.act === 'act2' ? '十年前' : '当年'}我哥飞升前留下的手记同出一脉。”`,
+          '谢无咎接过残简细看半晌，嘴角惯常挂着的懒散笑意顿时收了起来：“你在哪儿收的？纸背落款与十年前我哥飞升前留下的手记同出一脉。”',
           '他郑重收好残简，替你斟满一盏陈年灵茶，话里少了七分试探，多了几分真交情。',
         ],
         outcomeContinueLabel: '饮尽灵茶，辞别百宝斋',
@@ -1265,10 +1512,11 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
       },
       {
         id: 'v_xie_buy_token',
-        label: '奉上六十灵石求一块【百宝斋玄铁令】，交好时奇物享八五折',
-        visible: (s) => !s.relics.includes('baibao_token'),
+        label: '奉上六十灵石求一块【百宝斋玄铁令】，交好时奇物折让一成半',
+        visible: (s) =>
+          (s.act === 'act1' || s.act === 'act2') && !s.relics.includes('baibao_token'),
         requirement: { minSpiritStones: 60, lockReason: '需灵石 60' },
-        insightTags: ['得百宝斋玄铁令', '交好时奇物八五折'],
+        insightTags: ['得百宝斋玄铁令', '交好时奇物折让一成半'],
         effect: {
           timeMonths: 1,
           spiritStones: -60,
@@ -1279,17 +1527,239 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
             xie_wujiu: {
               meet: true,
               markSeen: true,
-              affectionDelta: 10,
+              affectionDelta: 7,
               chronicle: '你爽快出资购入百宝斋玄铁令，成了暗市雅间的座上宾。',
             },
           },
-          logSummary: '于百宝斋购入【百宝斋玄铁令】，得九州坊市奇物八五折礼遇。',
+          logSummary: '于百宝斋购入【百宝斋玄铁令】，得九州坊市奇物折让一成半礼遇。',
         },
         outcome: [
-          '谢无咎爽快收下六十灵石，反手抛来一块乌沉沉的【百宝斋玄铁令】：“以后九州大小坊市买奇物亮这块牌子，一律算你八五折。只要多买两件重宝，这本钱立马就赚回来了。”',
+          '谢无咎爽快收下六十灵石，反手抛来一块乌沉沉的【百宝斋玄铁令】：“以后九州大小坊市买奇物亮这块牌子，一律予你折让一成半。只要多买两件重宝，这本钱立马就赚回来了。”',
         ],
         outcomeContinueLabel: '收好玄铁令离去',
         bridgeNote: '玄铁令贴身微凉，百宝斋的暗门从此对你敞开。',
+        next: returnHubFor,
+      },
+
+      // === 卷三（筑基期 · 青州断脉商局与暗桩死手网） ===
+      {
+        id: 'v_xie_act3_deadman',
+        label: '出资五十灵石托他在青州七十二暗桩寄存「死手密信」，为日后对峙留底牌',
+        visible: (s) => s.act === 'act3' && !s.flags.xie_deadman_switch,
+        requirement: { minSpiritStones: 50, lockReason: '需灵石 50' },
+        insightTags: ['筑基专属', '暗网死手底牌', '防高阶灭口'],
+        effect: {
+          timeMonths: 2,
+          spiritStones: -50,
+          mind: 5,
+          renown: 5,
+          trackActionKey: 'visit_xie',
+          setFlags: { xie_deadman_switch: true },
+          companionUpdates: {
+            xie_wujiu: {
+              meet: true,
+              markSeen: true,
+              affectionDelta: 7,
+              chronicle: '你在青州分号预置七十二暗桩死手密渠，彼此互为后背退路。',
+            },
+          },
+          logSummary: '于谢无咎青州暗桩布下【死手密信】，此后面对高阶强敌多了一重投鼠忌器的威慑底牌。',
+        },
+        outcome: [
+          '谢无咎听完你的盘算，折扇一拍掌心大笑：“总算开窍了！靠一张孤本账页去吓唬金丹老鬼那是找死；把副本提前封蜡埋进七十二城茶楼暗桩，真到了翻脸时他们才不敢轻易杀人灭口。”',
+          '他当场替你签下三枚死手暗符，此后只要你亮出暗记，百宝暗桩便会成为悬在强敌头顶的一柄利剑。',
+        ],
+        outcomeContinueLabel: '收妥暗符，退出暗楼',
+        bridgeNote: '百宝七十二城死手暗渠已成，面对高阶强敌再非任人宰割之身。',
+        next: returnHubFor,
+      },
+      {
+        id: 'v_xie_act3_medicine_ledger',
+        label: '共析青州断脉药荒与分号局势，联手吃下一笔跨郡调拨差价',
+        visible: (s) => s.act === 'act3',
+        insightTags: ['筑基专属', '高额灵石差价', '谢无咎好感'],
+        effect: {
+          timeMonths: 2,
+          spiritStones: 105,
+          renown: 5,
+          trackActionKey: 'visit_xie',
+          setFlags: { xie_market_tip: true },
+          companionUpdates: {
+            xie_wujiu: {
+              meet: true,
+              markSeen: true,
+              affectionDelta: 6,
+              chronicle: '青州断脉之际与他共拆跨郡药材、矿砂行价，默契渐成。',
+            },
+          },
+        },
+        outcome: [
+          '谢无咎摊开青州各驿路水陆运费账单，顺势把几批急于出货的商队转托给你押运调拨。短短两月净落一百零五块灵石，你也借机摸清了分号内外各派掌柜的暗流。',
+        ],
+        outcomeContinueLabel: '收好分红，离开分号',
+        bridgeNote: '助百宝青州分号周转急单，净赚百余灵石并摸清商路动向。',
+        next: returnHubFor,
+      },
+      {
+        id: 'v_xie_act3_gift_sand',
+        label: '以一份【金脉灵砂】入股青州器坊急单，换取分红与情谊',
+        visible: (s) =>
+          s.act === 'act3' && (s.market.holdings.golden_vein_sand?.qty ?? 0) > 0,
+        insightTags: ['赠金脉灵砂', '返还90灵石', '谢无咎大幅好感'],
+        effect: (s) => {
+          const prev = s.market.holdings.golden_vein_sand;
+          return {
+            timeMonths: 2,
+            spiritStones: 90,
+            renown: 6,
+            trackActionKey: 'visit_xie',
+            grantMarketGoods:
+              prev && prev.qty > 0
+                ? [{ goodId: 'golden_vein_sand', qty: -1, unitCost: prev.avgCost }]
+                : undefined,
+            companionUpdates: {
+              xie_wujiu: {
+                meet: true,
+                markSeen: true,
+                affectionDelta: 10,
+                chronicle: '青州分号紧缺高阶矿砂时你慷慨相助，他回赠厚利并铭记人情。',
+              },
+            },
+          };
+        },
+        outcome: [
+          '谢无咎捻起一撮赤金灵砂对着烛火细看，眉毛一扬：“正愁被天机商行卡了矿口交不出货呢！你这份砂救了分号半条命，这九十块灵石算头一笔红利，剩下的情分我记在心里。”',
+        ],
+        outcomeContinueLabel: '饮罢庆功酒离去',
+        bridgeNote: '雪中送炭补齐器坊灵砂缺口，谢无咎对你愈发倚重。',
+        next: returnHubFor,
+      },
+      {
+        id: 'v_xie_act3_buy_token',
+        label: '趁分号盘账奉六十灵石补办一块【百宝斋玄铁令】',
+        visible: (s) => s.act === 'act3' && !s.relics.includes('baibao_token'),
+        requirement: { minSpiritStones: 60, lockReason: '需灵石 60' },
+        insightTags: ['得百宝斋玄铁令', '奇物折让一成半'],
+        effect: {
+          timeMonths: 1,
+          spiritStones: -60,
+          addRelics: ['baibao_token'],
+          renown: 4,
+          trackActionKey: 'visit_xie',
+          companionUpdates: {
+            xie_wujiu: {
+              meet: true,
+              markSeen: true,
+              affectionDelta: 6,
+              chronicle: '于青州分号补领百宝斋玄铁令，九州商路互通有无。',
+            },
+          },
+        },
+        outcome: [
+          '谢无咎将玄铁令抛进你掌心：“筑基往后重宝动辄数百上千灵石，早该把这块折让一成半的牌子揣身上了。”',
+        ],
+        outcomeContinueLabel: '收好玄铁令离去',
+        bridgeNote: '补办玄铁令在手，此后九州坊市购宝省心不少。',
+        next: returnHubFor,
+      },
+
+      // === 卷四（金丹期 · 九州公契/灵票动荡之辩与元婴筹备） ===
+      {
+        id: 'v_xie_act4_charter_debate',
+        label: (s) =>
+          Boolean(s.flags.xie_new_order_founded)
+            ? '暗楼夜辩「九州公契」与乱世平抑粮药之策，共筹新商序'
+            : '暗楼夜议中州灵票动荡与乱世平抑粮药之策，研判七十二城变局',
+        visible: (s) => s.act === 'act4',
+        insightTags: ['金丹专属', '心境与声望大进', '谢无咎好感'],
+        effect: (s) => ({
+          timeMonths: 2,
+          mind: 10,
+          renown: 8,
+          righteous: 5,
+          trackActionKey: 'visit_xie',
+          companionUpdates: {
+            xie_wujiu: {
+              meet: true,
+              markSeen: true,
+              affectionDelta: 7,
+              chronicle: Boolean(s.flags.xie_new_order_founded)
+                ? '金丹之境与他于中州暗楼通宵推演九州通兑公契，立商以安苍生。'
+                : '金丹之境与他于暗楼通宵推演中州灵票变局与平抑粮药之策。',
+            },
+          },
+        }),
+        outcome: [
+          (s) =>
+            Boolean(s.flags.xie_new_order_founded)
+              ? '窗外灵脉枯警频传，各地票号兑付成潮。你与谢无咎对着满墙九州舆图推演至五更，逐条定下散修平价灵粮规矩与跨州公契兑付章程。'
+              : '窗外灵脉枯警频传，各地票号兑付成潮。你与谢无咎对着满墙九州舆图推演至五更，逐条拆解中州灵矿缺口与稳住散修灵粮市价的暗策。',
+          '天明时谢无咎揉着眉心失笑：“从前我只想着赚够灵石保命，如今被你带得，竟也开始盘算起怎么给天下散修留条活路了。”',
+        ],
+        outcomeContinueLabel: '收起舆图，辞别暗楼',
+        bridgeNote: '与谢无咎共议乱世商策，九州商号间渐传你二人仁商之名。',
+        next: returnHubFor,
+      },
+      {
+        id: 'v_xie_act4_nascent_supply',
+        label: '动用百宝总号脉络代筹元婴护阵灵石，并巩固全域暗网退路',
+        visible: (s) => s.act === 'act4',
+        insightTags: ['金丹专属', '140灵石筹码', '暗网退路'],
+        effect: {
+          timeMonths: 2,
+          spiritStones: 140,
+          renown: 6,
+          setFlags: { xie_deadman_switch: true },
+          trackActionKey: 'visit_xie',
+          companionUpdates: {
+            xie_wujiu: {
+              meet: true,
+              markSeen: true,
+              affectionDelta: 6,
+              chronicle: '金丹筹备成婴之际，他倾百宝商网之力替你腾挪出一笔破境厚资。',
+            },
+          },
+        },
+        outcome: [
+          '谢无咎拨完最后三颗玄铁算珠，直接推过来一只沉甸甸的乾坤钱匣：“一百四十块上品折算灵石，外加七十二城暗桩随时听候调遣。你若顺利成婴，我百宝斋在九州便真正站稳了脊梁。”',
+        ],
+        outcomeContinueLabel: '收起钱匣，拱手辞行',
+        bridgeNote: '得谢无咎暗中筹措百四十灵石，碎丹成婴的底气厚实了许多。',
+        next: returnHubFor,
+      },
+      {
+        id: 'v_xie_act4_gift_amber',
+        label: '赠一份【凝神琥珀】助他稳固神识，顺道换阅仙盟高层秘报',
+        visible: (s) =>
+          s.act === 'act4' && (s.market.holdings.soul_amber?.qty ?? 0) > 0,
+        insightTags: ['赠凝神琥珀', '谢无咎大幅好感', '心境与声望'],
+        effect: (s) => {
+          const prev = s.market.holdings.soul_amber;
+          return {
+            timeMonths: 2,
+            mind: 11,
+            renown: 8,
+            trackActionKey: 'visit_xie',
+            grantMarketGoods:
+              prev && prev.qty > 0
+                ? [{ goodId: 'soul_amber', qty: -1, unitCost: prev.avgCost }]
+                : undefined,
+            companionUpdates: {
+              xie_wujiu: {
+                meet: true,
+                markSeen: true,
+                affectionDelta: 10,
+                chronicle: '乱世奔波神耗之际，你送来稀世凝神琥珀并共阅仙盟高层暗档。',
+              },
+            },
+          };
+        },
+        outcome: [
+          '连月奔走商战令谢无咎眼底积满倦色，接过温润的【凝神琥珀】时他难得没开玩笑，沉默片刻后从夹层摸出一叠仙盟长老私账递给你：“拿去，里面记着不少大宗老鬼的软肋。”',
+        ],
+        outcomeContinueLabel: (s) =>
+          s.flags.act4_chamber_collapsed ? '收好密报，告别总号' : '收好密报，告别暗楼',
+        bridgeNote: '赠凝神琥珀得阅仙盟私账，彼此已是过命交情。',
         next: returnHubFor,
       },
       {
@@ -1306,11 +1776,11 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
     title: '寒松论剑',
     subtitle: '故人相会 · 沈清霜',
     location: (s) => {
-      const leftSect =
-        s.tags.includes('sect_rebel') ||
-        Boolean(s.flags.shen_left_sect) ||
-        Boolean(s.flags.shen_freed_from_sect) ||
-        Boolean(s.flags.qingyun_elders_hostile);
+      const leftSect = Boolean(
+        s.flags.shen_left_sect ||
+          s.flags.shen_freed_from_sect ||
+          s.flags.shen_saved_from_sect
+      );
       if (s.act === 'act4') return leftSect ? '北麓松崖 · 隐蔽剑庐' : '中州松岭 · 寒泉石亭';
       if (s.act === 'act3') return leftSect ? '云岭松崖 · 隐蔽剑庐' : '云岭偏亭 · 松风石阶';
       return leftSect ? '青岚外麓 · 僻静松崖' : '青岚山麓 · 断剑亭外松林';
@@ -1324,11 +1794,11 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
           return '听闻青云剑宗首座沈清霜常在山麓断剑亭独自试剑。你沿着石阶拾级而上，果然见白衣女修立于松影清寒间收剑调息，眉眼清冽如秋水。';
         }
         const repeatVisit = (s.actionUses[`${s.act}:visit_shen`] ?? 0) > 0;
-        const leftSect =
-          s.tags.includes('sect_rebel') ||
-          Boolean(s.flags.shen_left_sect) ||
-          Boolean(s.flags.shen_freed_from_sect) ||
-          Boolean(s.flags.qingyun_elders_hostile);
+        const leftSect = Boolean(
+          s.flags.shen_left_sect ||
+            s.flags.shen_freed_from_sect ||
+            s.flags.shen_saved_from_sect
+        );
         if (s.act === 'act4') {
           if (repeatVisit) {
             return '寒风拂过石案，沈清霜见你再度御剑登崖，反手将半壶清泉推至桌沿：“上回拆的剑路可消化透了？正好再印证一二。”';
@@ -1357,42 +1827,37 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
       },
     ],
     choices: [
+      // === 卷一 / 卷二（凡胎、炼气期） ===
       {
         id: 'v_shen_spar',
-        label: '请她拆解三招剑意，在交锋中打磨自身实战锋芒',
-        visible: (s) => s.companions.shen_qingshuang.stance !== 'estranged',
+        label: '请她折松枝拆解三招剑意，在交锋中打磨自身实战锋芒',
+        visible: (s) =>
+          (s.act === 'act1' || s.act === 'act2') &&
+          s.companions.shen_qingshuang.stance !== 'estranged',
         insightTags: (s) => [
-          s.act === 'act3' || s.act === 'act4' ? '修为大增' : '修为精进',
+          '修为精进',
           '沈清霜好感',
           s.tags.includes('sword_intent_seed') ? '剑意精纯' : '可得剑意雏形',
         ],
-        effect: (s) => {
-          const isLate = s.act === 'act3' || s.act === 'act4';
-          return {
-            timeMonths: 2,
-            might: isLate ? 11 : 7,
-            mind: isLate ? 6 : 3,
-            righteous: 4,
-            trackActionKey: 'visit_shen',
-            addTags: ['sword_intent_seed'],
-            setFlags: { v_shen_spar_was_met: s.companions.shen_qingshuang.met },
-            companionUpdates: {
-              shen_qingshuang: {
-                meet: true,
-                markSeen: true,
-                affectionDelta: 10,
-                chronicle: isLate
-                  ? '松崖之下以真剑印证破境关窍，彼此剑意愈发契合。'
-                  : '松林下与你切磋剑意，赞你悟性凌厉、进境甚快。',
-              },
+        effect: (s) => ({
+          timeMonths: 2,
+          might: 7,
+          mind: 3,
+          righteous: 4,
+          trackActionKey: 'visit_shen',
+          addTags: ['sword_intent_seed'],
+          setFlags: { v_shen_spar_was_met: s.companions.shen_qingshuang.met },
+          companionUpdates: {
+            shen_qingshuang: {
+              meet: true,
+              markSeen: true,
+              affectionDelta: 6,
+              chronicle: '青岚松林下与你折枝拆招，赞你悟性凌厉、进境甚快。',
             },
-          };
-        },
+          },
+        }),
         outcome: [
-          (s) =>
-            s.act === 'act3' || s.act === 'act4'
-              ? '两道霜寒与凌厉剑意在松崖间交错三十余合，松针被剑风震得漫空飞散。你们早已不必拘泥于枯枝点拨，每一剑皆是对彼此破境关窍的印证。'
-              : '她折下两段松枝抛给你一支。十余回合间剑影如霜，你被她震得虎口发麻，却也硬生生逼出了胸中一股凝练剑气。',
+          '她折下两段松枝抛给你一支。十余回合间剑影如霜，你被她震得腕骨发麻，却也硬生生逼出了胸中一股凝练剑气。',
           (s) =>
             s.flags.v_shen_spar_was_met
               ? '收势时沈清霜吐出一口白气，眼底多了几分认可：“出招比上回沉稳得多。守住这份锋芒，莫被世局乱了步子。”'
@@ -1406,6 +1871,7 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
         id: 'v_shen_gift_talisman',
         label: '赠她一张坊市备下的【破障符】，提醒她提防暗处冷箭',
         visible: (s) =>
+          (s.act === 'act1' || s.act === 'act2') &&
           s.companions.shen_qingshuang.stance !== 'estranged' &&
           (s.market.holdings.po_zhang_talisman?.qty ?? 0) > 0,
         insightTags: ['赠破障符', '沈清霜大幅好感', '正道声望'],
@@ -1414,7 +1880,7 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
           return {
             timeMonths: 1,
             renown: 4,
-            righteous: 6,
+            righteous: 5,
             trackActionKey: 'visit_shen',
             grantMarketGoods:
               prev && prev.qty > 0
@@ -1424,17 +1890,14 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
               shen_qingshuang: {
                 meet: true,
                 markSeen: true,
-                affectionDelta: 15,
+                affectionDelta: 9,
                 chronicle: '你专程送来破障符叮嘱她提防暗算，清冷如她亦露出一丝浅笑。',
               },
             },
           };
         },
         outcome: [
-          (s) =>
-            s.act === 'act3' || s.act === 'act4' || s.tags.includes('sect_rebel')
-              ? '沈清霜愣了一下才伸手接过符箓。如今两人皆已远胜当年的炼气境，她原不缺一张旧符，可听出你话里关切，眉梢冰霜竟化开半分：“多谢。我会贴身收好。”'
-              : '沈清霜愣了一下才伸手接过符箓。以她首座修为原不缺一张二阶符，可听出你话里关切，眉梢冰霜竟化开半分：“多谢。我会贴身收好。”',
+          '沈清霜愣了一下才伸手接过符箓。以她首座修为原不缺一张二阶符，可听出你话里关切，眉梢冰霜竟化开半分：“多谢。我会贴身收好。”',
         ],
         outcomeContinueLabel: '目送白衣入林，转身下山',
         bridgeNote: '赠予沈清霜破障符后，两人之间那层疏离感又薄了几分。',
@@ -1444,38 +1907,274 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
         id: 'v_shen_debate_dao',
         label: (s) =>
           s.truthClues.includes('clue_stele_gap')
-            ? '坐于石亭对饮清泉，共议碑背反文与斩断伪天门的后手'
-            : s.act === 'act3' || s.act === 'act4'
-            ? '坐于石亭对饮清泉，共议九州枯脉与仙盟飞升候补之局'
+            ? '坐于松崖对饮清泉，与她细推飞升碑背反文背后的真正图谋'
             : '坐于石亭对饮清泉，直问她三千年飞升无回音究竟是何缘故',
-        visible: (s) => s.companions.shen_qingshuang.stance !== 'estranged',
-        insightTags: ['心境提升', '世界暗线交流', '沈清霜好感'],
+        visible: (s) =>
+          (s.act === 'act1' || s.act === 'act2') &&
+          s.companions.shen_qingshuang.stance !== 'estranged',
+        insightTags: (s) => [
+          '心境提升',
+          s.truthClues.includes('clue_stele_gap') ? '共析碑背反文' : '飞升旧疑交流',
+          '沈清霜好感',
+        ],
         effect: (s) => ({
           timeMonths: 2,
-          mind: s.act === 'act3' || s.act === 'act4' ? 11 : 7,
+          mind: 7,
           trackActionKey: 'visit_shen',
           companionUpdates: {
             shen_qingshuang: {
               meet: true,
               markSeen: true,
-              affectionDelta: 8,
-              chronicle:
-                s.truthClues.includes('clue_stele_gap') || s.act === 'act3' || s.act === 'act4'
-                  ? '松亭对饮清泉，与你推演九州灵脉与天门后手，彼此意气愈合。'
-                  : '断剑亭中与你夜话三千年飞升疑云，她第一次发现同辈之中竟有人与她抱持同样的疑虑。',
+              affectionDelta: 6,
+              chronicle: s.truthClues.includes('clue_stele_gap')
+                ? '山外松风间与你细析飞升碑背血色反文，彼此对筑基后追查真相之心愈笃。'
+                : '断剑亭中与你夜话三千年飞升疑云，她第一次发现同辈之中竟有人抱持同样疑虑。',
             },
           },
         }),
         outcome: [
           (s) =>
             s.truthClues.includes('clue_stele_gap')
-              ? '沈清霜执盏望向远处翻涌的铅灰云海，声音沉静而坚决：“碑背血字与九州枯脉摆在眼前，仙盟诸老抹得掉碑文，抹不掉九州枯脉。这一剑早晚要递向天门，只差你我都修到足够高处。”'
-              : s.act === 'act3' || s.act === 'act4'
-              ? '沈清霜执盏望向远处铅灰云海，嗓音沉静如霜：“灵脉枯竭至此，仙盟却仍年年催选飞升候补，其中必有隐情。待你我都修到足够高处，迟早要亲眼掀开天门后的底细。”'
+              ? '提及飞升崖碑背那句“七度光落，无一音回”，沈清霜指节轻叩石案，眉目沉静如铁：“反文既被后人削去大半，便说明宗门里早有人察觉端倪却被迫噤声。眼下你我唯有先破筑基，才有资格去九州查个水落石出。”'
               : '听见你的发问，沈清霜握杯的手指微微一顿。沉默良久，她望向青云主峰云海轻声道：“宗门典籍只说天门接引乃无上荣光，可连师尊都不愿细谈历代飞升者的下落。这个问题，我也在找答案。”',
         ],
-        outcomeContinueLabel: '辞别石亭，下山思索',
-        bridgeNote: '松亭一番深谈，你与沈清霜的道心愈发清明笃定。',
+        outcomeContinueLabel: (s) =>
+          Boolean(
+            s.flags.shen_left_sect ||
+              s.flags.shen_freed_from_sect ||
+              s.flags.shen_saved_from_sect
+          )
+            ? '辞别松崖，下山思索'
+            : '辞别石亭，下山思索',
+        bridgeNote: (s) =>
+          s.truthClues.includes('clue_stele_gap')
+            ? '松崖深谈碑背反文后，你与沈清霜对破境追查真相愈发笃定。'
+            : '松亭一番深谈，你与沈清霜对三千年飞升疑云皆生出警惕。',
+        next: returnHubFor,
+      },
+
+      // === 卷三（筑基期 · 真剑越阶演锋、仙盟派系密议、金脉灵砂淬剑） ===
+      {
+        id: 'v_shen_act3_overmatch',
+        label: '云岭松崖以真剑对拆筑基破防剑势，苦练以弱抗强的越阶锋芒',
+        visible: (s) =>
+          s.act === 'act3' && s.companions.shen_qingshuang.stance !== 'estranged',
+        insightTags: ['筑基专属', '淬炼越阶战力底蕴', '修为大进'],
+        effect: {
+          timeMonths: 2,
+          might: 10,
+          mind: 5,
+          righteous: 4,
+          addTags: ['sword_intent_seed'],
+          setFlags: { overmatch_drill_act2: true },
+          trackActionKey: 'visit_shen',
+          companionUpdates: {
+            shen_qingshuang: {
+              meet: true,
+              markSeen: true,
+              affectionDelta: 7,
+              chronicle: '云岭松崖以真剑印证破防关窍，助你凝成足以越阶抗衡的剑势。',
+            },
+          },
+        },
+        outcome: [
+          '两道真剑剑气在松崖间交错三十余合，剑风削落满地松针！沈清霜以筑基巅峰凌厉剑势摹拟金丹压迫之威逼你出手，直拆到你指节渗血方才收剑。',
+          '她递来一枚清创丹，眼底映着寒光：“记住方才那一剑的换气间隙——日后若撞上金丹强敌围杀，靠这一式至少能逼退半息、保住性命。”',
+        ],
+        outcomeContinueLabel: '收剑调息，离开松崖',
+        bridgeNote: '经沈清霜真剑喂招，你身法中已多出一股越阶抗衡的凌厉锋芒。',
+        next: returnHubFor,
+      },
+      {
+        id: 'v_shen_act3_sect_intel',
+        label: (s) =>
+          s.truthClues.includes('clue_alliance_pact')
+            ? '密议仙盟「百年贡约」风声与三宗主战、主和两派的真实底细'
+            : '密议云岭三宗灵矿分派与「飞升候补」背后的派系暗流',
+        visible: (s) =>
+          s.act === 'act3' && s.companions.shen_qingshuang.stance !== 'estranged',
+        insightTags: ['筑基专属', '仙盟局势研判', '心境与声望'],
+        effect: {
+          timeMonths: 2,
+          mind: 10,
+          renown: 5,
+          trackActionKey: 'visit_shen',
+          companionUpdates: {
+            shen_qingshuang: {
+              meet: true,
+              markSeen: true,
+              affectionDelta: 6,
+              chronicle: '云岭偏亭与你密析三大宗门派系暗流，为后续涉险早作筹谋。',
+            },
+          },
+        },
+        outcome: [
+          (s) =>
+            s.truthClues.includes('clue_alliance_pact')
+              ? '沈清霜以剑尖在石案蘸水画出三宗格局：“玄霄长老一派坚称‘纳贡保界壁’是无奈之举，可太乙丹谷里早有年轻执事察觉灵脉不对。真要撼动仙盟，绝不能单凭意气，必须拿出让中立派闭嘴的硬证据。”'
+              : '沈清霜以剑尖在石案蘸水画出三宗格局：“青云、太乙与天星三宗看似铁板一块，实则对灵矿分派与近来催逼‘飞升候补’各怀心思。真要查清云岭底细，绝不能单凭意气，须先摸清哪几派心生嫌隙。”',
+        ],
+        outcomeContinueLabel: '抹去水痕，下山筹谋',
+        bridgeNote: '摸清仙盟内部派系分歧后，你看待正道大局不再非黑即白。',
+        next: returnHubFor,
+      },
+      {
+        id: 'v_shen_act3_gift_sand',
+        label: '赠她一份【金脉灵砂】重淬霜剑剑脊，以备九州恶战',
+        visible: (s) =>
+          s.act === 'act3' &&
+          s.companions.shen_qingshuang.stance !== 'estranged' &&
+          (s.market.holdings.golden_vein_sand?.qty ?? 0) > 0,
+        insightTags: ['赠金脉灵砂', '沈清霜大幅好感', '修为与正道'],
+        effect: (s) => {
+          const prev = s.market.holdings.golden_vein_sand;
+          return {
+            timeMonths: 2,
+            might: 8,
+            righteous: 6,
+            trackActionKey: 'visit_shen',
+            grantMarketGoods:
+              prev && prev.qty > 0
+                ? [{ goodId: 'golden_vein_sand', qty: -1, unitCost: prev.avgCost }]
+                : undefined,
+            companionUpdates: {
+              shen_qingshuang: {
+                meet: true,
+                markSeen: true,
+                affectionDelta: 10,
+                chronicle: '你将稀缺金脉灵砂赠她淬炼本命霜剑，剑鸣清越如应君心。',
+              },
+            },
+          };
+        },
+        outcome: [
+          '赤金灵砂撒入寒泉淬火，本命霜剑发出一声清越龙吟，剑脊细微旧裂瞬间弥合。沈清霜收剑回鞘，眸光罕见地柔和许多：“此剑日后所斩，皆有你一半锋芒。”',
+        ],
+        outcomeContinueLabel: (s) =>
+          Boolean(
+            s.flags.shen_left_sect ||
+              s.flags.shen_freed_from_sect ||
+              s.flags.shen_saved_from_sect
+          )
+            ? '辞别剑庐，重入尘途'
+            : '辞别偏亭，重入尘途',
+        bridgeNote: '助沈清霜以金脉灵砂重淬霜剑，两人默契又深一层。',
+        next: returnHubFor,
+      },
+
+      // === 卷四（金丹期 · 绝壁碎天剑阵、核查斩天旧档、凝神琥珀） ===
+      {
+        id: 'v_shen_act4_sky_sword',
+        label: '绝壁罡风中共演金丹碎天剑阵，推升越阶破阵杀伐之威',
+        visible: (s) =>
+          s.act === 'act4' && s.companions.shen_qingshuang.stance !== 'estranged',
+        insightTags: ['金丹专属', '高阶越阶杀招', '修为与心境大进'],
+        effect: {
+          timeMonths: 2,
+          might: 14,
+          mind: 7,
+          setFlags: { overmatch_drill_act3: true },
+          trackActionKey: 'visit_shen',
+          companionUpdates: {
+            shen_qingshuang: {
+              meet: true,
+              markSeen: true,
+              affectionDelta: 7,
+              chronicle: '金丹之境于松崖绝壁共演碎天剑阵，剑气贯云、所向披靡。',
+            },
+          },
+        },
+        outcome: [
+          '百丈绝壁之上云海翻腾。你与沈清霜双剑齐鸣，以金丹真元合力斩出一道十丈霜虹，将铅灰劫云硬生生劈出一角晴空！',
+          '收剑立于崖畔，她发丝拂过冷冽侧脸：“这一剑已有撼动元婴法身之力。天门再高，总有剑锋够得着的那一天。”',
+        ],
+        outcomeContinueLabel: '收剑御风，辞别松崖',
+        bridgeNote: '松崖共演碎天剑阵，你的越阶搏杀底气已臻金丹绝巅。',
+        next: returnHubFor,
+      },
+      {
+        id: 'v_shen_act4_zhantian_review',
+        label: (s) =>
+          s.truthClues.length >= 2
+            ? '石案并卷核查历年搜集的天机线索，推演九州枯脉真凶'
+            : '石案并卷推演九州灵脉剧枯与各大宗门封山异象',
+        visible: (s) =>
+          s.act === 'act4' && s.companions.shen_qingshuang.stance !== 'estranged',
+        insightTags: ['金丹专属', '并案复核', '心境与声望大进'],
+        effect: {
+          timeMonths: 2,
+          mind: 12,
+          renown: 6,
+          trackActionKey: 'visit_shen',
+          companionUpdates: {
+            shen_qingshuang: {
+              meet: true,
+              markSeen: true,
+              affectionDelta: 6,
+              chronicle: '松崖石案前与你逐卷比对九州异象线索，理清大劫来龙去脉。',
+            },
+          },
+        },
+        outcome: [
+          (s) => {
+            const items: string[] = [];
+            if (s.truthClues.includes('clue_stele_gap')) items.push('飞升碑反文');
+            if (s.truthClues.includes('clue_vein_drain')) items.push('灵脉倒流账');
+            if (s.truthClues.includes('clue_alliance_pact')) items.push('仙盟百年贡约');
+            if (s.truthClues.includes('clue_zhantian_remnant')) items.push('斩天会四代遗录');
+            if (s.truthClues.includes('clue_tianji_portal')) items.push('转运井灵灰证词');
+            if (items.length >= 2) {
+              return `石案上摊开你二人历年拼凑的${items.join('、')}与沿途见闻。你们一条条勾连起表象、物证与口供，将天象剧变背后的每一处破绽标得清清楚楚。`;
+            }
+            return '石案上摊满九州近三年七条灵脉干涸的勘图与各宗动向。你们逐一比对枯竭年月与星象异动，越看越觉背后藏着一只看不见的巨手。';
+          },
+          '沈清霜合卷轻声道：“实据越密，将来真到天下群雄对峙之时，能醒过来的人便越多。我们不是孤军。”',
+        ],
+        outcomeContinueLabel: '收齐密卷，下山布势',
+        bridgeNote: '与沈清霜并案梳理天机线索，你对未来变局已胸有成竹。',
+        next: returnHubFor,
+      },
+      {
+        id: 'v_shen_act4_gift_amber',
+        label: '赠一份【凝神琥珀】助她镇压破婴前夕的剑心寒煞',
+        visible: (s) =>
+          s.act === 'act4' &&
+          s.companions.shen_qingshuang.stance !== 'estranged' &&
+          (s.market.holdings.soul_amber?.qty ?? 0) > 0,
+        insightTags: ['赠凝神琥珀', '沈清霜大幅好感', '心境大进'],
+        effect: (s) => {
+          const prev = s.market.holdings.soul_amber;
+          return {
+            timeMonths: 2,
+            mind: 12,
+            righteous: 6,
+            trackActionKey: 'visit_shen',
+            grantMarketGoods:
+              prev && prev.qty > 0
+                ? [{ goodId: 'soul_amber', qty: -1, unitCost: prev.avgCost }]
+                : undefined,
+            companionUpdates: {
+              shen_qingshuang: {
+                meet: true,
+                markSeen: true,
+                affectionDelta: 10,
+                chronicle: '你送来罕见凝神琥珀替她抚平破婴前夕剑心寒煞，彼此心照不宣。',
+              },
+            },
+          };
+        },
+        outcome: [
+          '沈清霜将那块暖金色琥珀握入掌心，眉宇间常年挥之不去的寒疲散去大半。她抬眸望你良久，低声说了句“等破婴之后，我陪你去看一场不下雪的春山”。',
+        ],
+        outcomeContinueLabel: (s) =>
+          Boolean(
+            s.flags.shen_left_sect ||
+              s.flags.shen_freed_from_sect ||
+              s.flags.shen_saved_from_sect
+          )
+            ? '辞别剑庐，心怀暖意'
+            : '辞别石亭，心怀暖意',
+        bridgeNote: '赠凝神琥珀护她剑心，冰雪剑修对你已彻底敞开心扉。',
         next: returnHubFor,
       },
       {
@@ -1490,7 +2189,7 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
     id: 'visit_cang_ming',
     act: 'act1',
     title: '古剑问计',
-    subtitle: '主动交互 · 苍溟',
+    subtitle: '故人相会 · 苍溟',
     location: (s) =>
       s.tags.includes('cangming_reborn') ? '别院石栏 · 夜风对坐' : '静室 · 识海微光',
     paragraphs: [
@@ -1507,75 +2206,51 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
         if (s.tags.includes('cangming_reborn')) return null;
         const repeatVisit = (s.actionUses[`${s.act}:visit_cm`] ?? 0) > 0;
         if (repeatVisit) {
-          return '断玉青影才刚浮现，苍溟便抱臂嗤笑：“刚敲过一回又来扰本座清梦。说罢，是带了灵石，还是又想听老家伙扯陈年旧账？”';
+          return '断玉青影才刚浮现，苍溟残魂便冷冷嗤笑：“刚敲过一回又来扰本座清梦。说罢，是带了灵石，还是又想听老家伙扯陈年旧账？”';
         }
         return s.companions.cang_ming.affection >= 25
-          ? '识海很快泛起淡淡青影。苍溟抱臂斜倚在虚空里，语气虽仍带着几分老牌剑尊的倨傲，却少了初见时的防备：“怎么，外头又撞见什么解不开的烂摊子了？”'
+          ? '识海很快泛起淡淡青影。苍溟虚影在玉光中沉浮不定，语气虽仍带着几分老牌剑尊的倨傲，却少了初见时的防备：“怎么，外头又撞见什么解不开的烂摊子了？”'
           : '玉身震动片刻，苍溟懒洋洋的声音才响起来：“无事不登三宝殿，小辈，拿什么来换本座开口？”';
       },
     ],
     choices: [
+      // === 卷一 / 卷二（凡胎、炼气期） ===
       {
         id: 'v_cm_feed_stones',
-        label: (s) => {
-          const isLate = s.act === 'act3' || s.act === 'act4';
-          if (s.tags.includes('cangming_reborn')) {
-            return '取八十灵石备好护院灵阵，请复生的苍溟提真剑与你实打实拆招三十合';
-          }
-          return isLate
-            ? '以八十灵石温养断玉，请苍溟拆解一式高阶古剑行气法'
-            : '以三十五灵石温养断玉，请苍溟传授一式上古行气秘诀';
-        },
-        requirement: {
-          custom: (s) => {
-            const cost = s.act === 'act3' || s.act === 'act4' ? 80 : 35;
-            return s.spiritStones >= cost
-              ? { ok: true }
-              : { ok: false, reason: `需灵石 ${cost}` };
+        label: '以三十五灵石温养断玉，请苍溟传授一式上古行气秘诀',
+        visible: (s) => s.act === 'act1' || s.act === 'act2',
+        requirement: { minSpiritStones: 35, lockReason: '需灵石 35' },
+        insightTags: ['耗35灵石', '修为大进', '苍溟好感'],
+        effect: {
+          timeMonths: 2,
+          spiritStones: -35,
+          might: 10,
+          trackActionKey: 'visit_cm',
+          companionUpdates: {
+            cang_ming: {
+              meet: true,
+              markSeen: true,
+              affectionDelta: 7,
+              chronicle: '早年你以灵石助他温养剑元，他嘴上嫌少，却大方传了你一式上古行气窍门。',
+            },
           },
         },
-        insightTags: ['耗灵石切磋', '修为大进', '苍溟好感'],
-        effect: (s) => {
-          const isLate = s.act === 'act3' || s.act === 'act4';
-          const reborn = s.tags.includes('cangming_reborn');
-          const repeatVisit = (s.actionUses[`${s.act}:visit_cm`] ?? 0) > 0;
-          return {
-            timeMonths: 2,
-            spiritStones: isLate ? -80 : -35,
-            might: isLate ? 14 : 10,
-            trackActionKey: 'visit_cm',
-            setFlags: { v_cm_reborn_repeat: repeatVisit },
-            companionUpdates: {
-              cang_ming: {
-                meet: true,
-                markSeen: true,
-                affectionDelta: 12,
-                chronicle: reborn
-                  ? '夜院布阵与复生的他以真剑实拆三十合，剑意磨砺得愈发悍厉。'
-                  : '你以灵石助他温养剑元，他嘴上嫌少，却大方传了你一式上古行气窍门。',
-              },
-            },
-          };
-        },
         outcome: [
-          (s) =>
-            s.tags.includes('cangming_reborn')
-              ? s.flags.v_cm_reborn_repeat
-                ? '八十块灵石撑起院中隔绝灵阵，苍溟拔剑出鞘，三千年前的古剑煞气扑面而来！三十合硬碰硬拆罢，石阶裂纹纵横，他收剑甩去虎口微麻，冷哼一声：“总算没白练，这一手变招比上回快了半息。”'
-                : '八十块灵石撑起院中隔绝灵阵，苍溟拔剑出鞘，三千年前的古剑煞气扑面而来！三十合硬碰硬拆罢，石阶裂纹纵横，他收剑甩去虎口微麻，冷哼一声：“久未提真剑，倒没生疏。你这一手变招也算有几分看头。”'
-              : s.act === 'act3' || s.act === 'act4'
-              ? '八十块灵石瞬间化作清流被断玉吸了个精光。苍溟长出一口气，将一式长明旧世的破阵剑气运脉法打进你识海：“筑基往后便不能再靠蛮力了，拿去磨透。”'
-              : '三十五块灵石瞬间化作清流被断玉吸了个精光。苍溟长出一口气，反手将一道精妙无比的周天行气图打进你脑海：“还算懂事。照着这个练，斗法时灵力回转能快上三成。”',
+          '三十五块灵石瞬间化作清流被断玉吸了个精光。苍溟长出一口气，反手将一道精妙无比的周天行气图打进你脑海：“还算懂事。照着这个练，斗法时灵力回转能快上三成。”',
         ],
         outcomeContinueLabel: '收功起身，重返尘世',
-        bridgeNote: '得苍溟亲授古剑要诀，修为精进颇丰。',
+        bridgeNote: (s) =>
+          s.act === 'act1'
+            ? '得苍溟亲授古剑行气秘诀，凡胎气脉精进颇丰。'
+            : '得苍溟亲授古剑行气秘诀，炼气修为精进颇丰。',
         next: returnHubFor,
       },
       {
         id: 'v_cm_ask_history',
         label: '不求功法，只静心听他讲三千年前长明历之前的修仙旧事',
+        visible: (s) => s.act === 'act1' || s.act === 'act2',
         insightTags: ['零花费', '心境大增', '苍溟好感'],
-        effect: (s) => ({
+        effect: {
           timeMonths: 2,
           mind: 8,
           trackActionKey: 'visit_cm',
@@ -1583,19 +2258,276 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
             cang_ming: {
               meet: true,
               markSeen: true,
-              affectionDelta: 9,
-              chronicle: s.tags.includes('cangming_reborn')
-                ? '深夜静听他追忆三千年前灵气充盈的旧世山河，重获真身的剑尊话匣子难得打开。'
-                : '深夜静听他追忆三千年前灵气充盈的旧世山河，三千年孤魂话匣子难得打开。',
+              affectionDelta: 6,
+              chronicle: '深夜静听他追忆三千年前灵气充盈的旧世山河，三千年孤魂话匣子难得打开。',
             },
           },
-        }),
+        },
         outcome: [
           '苍溟沉默了片刻，终究慢慢讲起三千年前山川灵脉纵横、炼气修士亦可御风百里的旧世光景。说到故友与山河俱焚时，他身畔剑气忽然低沉如呜咽。',
           '听完这夜旧事，你再看如今灵气凋敝的九州山河，心境豁然拔高了一层。',
         ],
         outcomeContinueLabel: '辞别静夜，起身离去',
         bridgeNote: '听苍溟追忆三千年前灵脉未枯的旧世，你心中愈发清楚今世之怪。',
+        next: returnHubFor,
+      },
+
+      // === 卷三（筑基期 · 上古越阶杀招、同源灰尘勘验、金脉灵砂） ===
+      {
+        id: 'v_cm_act3_overmatch',
+        label: '耗七十灵石温养断玉，请教以筑基硬撼金丹的上古越阶杀伐剑理',
+        visible: (s) => s.act === 'act3',
+        requirement: { minSpiritStones: 70, lockReason: '需灵石 70' },
+        insightTags: ['筑基专属', '淬炼越阶战力底蕴', '修为大进'],
+        effect: {
+          timeMonths: 2,
+          spiritStones: -70,
+          might: 13,
+          setFlags: { overmatch_drill_act2: true },
+          trackActionKey: 'visit_cm',
+          companionUpdates: {
+            cang_ming: {
+              meet: true,
+              markSeen: true,
+              affectionDelta: 7,
+              chronicle: '筑基境以灵石温玉求教，他将一式专破高阶护体罡气的上古截脉剑诀授你。',
+            },
+          },
+        },
+        outcome: [
+          '七十块灵石化作青雾没入焦玉。苍溟双指并剑凌空划出一道诡谲刁钻的截脉弧光：“今世金丹老贼最爱拿境界灵压欺人，你就专打他丹元吞吐的半息空档！练熟这一式，筑基境亦能斩掉他们一只袖子。”',
+        ],
+        outcomeContinueLabel: '铭记截脉剑理，收功起身',
+        bridgeNote: '习得苍溟亲授的上古截脉剑诀，越阶搏杀的筹码实实在在厚了一层。',
+        next: returnHubFor,
+      },
+      {
+        id: 'v_cm_act3_dust_audit',
+        label: (s) =>
+          s.truthClues.some((c) =>
+            ['clue_blood_pill_dust', 'clue_ancient_vein_sigil', 'clue_tianji_portal'].includes(c)
+          )
+            ? '请他以古剑灵觉勘验已得灰尘物证与地脉异象的同源破绽'
+            : '请他以古剑灵觉剖析九州灵脉骤枯与上古阵法的异样端倪',
+        visible: (s) => s.act === 'act3',
+        insightTags: ['筑基专属', '零花费', '心境与证据洞察'],
+        effect: (s) => ({
+          timeMonths: 2,
+          mind: 10,
+          renown: 4,
+          trackActionKey: 'visit_cm',
+          companionUpdates: {
+            cang_ming: {
+              meet: true,
+              markSeen: true,
+              affectionDelta: 6,
+              chronicle: s.truthClues.includes('clue_alliance_pact')
+                ? '夜半请他勘验下界异象与贡约阵理，拆穿了所谓护界之说的荒谬。'
+                : '夜半请他以上古剑觉剖析九州枯脉异象，洞见灵流倒抽之弊。',
+            },
+          },
+        }),
+        outcome: [
+          (s) => {
+            const hasDust = s.truthClues.some((c) =>
+              ['clue_blood_pill_dust', 'clue_ancient_vein_sigil', 'clue_tianji_portal'].includes(c)
+            );
+            const knowsPact = s.truthClues.includes('clue_alliance_pact');
+            if (hasDust && knowsPact) {
+              return '苍溟嗤笑一声，指尖青焰将你搜集的几粒灰白微尘托起：“护界？真要稳固界壁，阵纹该往外撑，怎会全是往九霄倒抽的漏斗纹？今世仙盟那帮软骨辈，不过是替屠夫递刀还要编套好听话罢了。”';
+            }
+            if (hasDust) {
+              return '苍溟嗤笑一声，指尖青焰将你搜集的几粒灰白微尘托起：“这等阴冷死灰，三千年前本座见得多了——阵纹全是往九霄倒抽的漏斗势，哪是什么自然枯竭？下界被人当成了汲灵之井罢了。”';
+            }
+            if (knowsPact) {
+              return '苍溟冷笑一声，抬指在虚空勾出一道残缺上古灵流图：“什么狗屁护界贡约！真要稳固界壁，灵气该往外补，怎会只剩大宗高坛有气、外域一夕成灰？仙盟那帮软骨辈不过是自欺欺人罢了。”';
+            }
+            return '苍溟冷笑一声，抬指在虚空勾出一道残缺上古灵流图：“今世修士个个把断脉当成天灾劫数，真是瞎了眼。灵潮若是自然退去，岂会只剩大宗高坛有气、外域一夕成灰？细查地底与账册罢。”';
+          },
+        ],
+        outcomeContinueLabel: '收好勘验札记，退出静室',
+        bridgeNote: (s) =>
+          s.truthClues.includes('clue_alliance_pact')
+            ? '经苍溟从上古阵理逐一勘破，你更看穿了“护界进贡论”的破绽。'
+            : '经苍溟从上古阵理剖析枯脉异象，你的眼界又利了几分。',
+        next: returnHubFor,
+      },
+      {
+        id: 'v_cm_act3_gift_sand',
+        label: '献上一份【金脉灵砂】，供断玉残魂淬炼剑意虚影',
+        visible: (s) =>
+          s.act === 'act3' && (s.market.holdings.golden_vein_sand?.qty ?? 0) > 0,
+        insightTags: ['赠金脉灵砂', '苍溟大幅好感', '修为精进'],
+        effect: (s) => {
+          const prev = s.market.holdings.golden_vein_sand;
+          return {
+            timeMonths: 2,
+            might: 10,
+            trackActionKey: 'visit_cm',
+            grantMarketGoods:
+              prev && prev.qty > 0
+                ? [{ goodId: 'golden_vein_sand', qty: -1, unitCost: prev.avgCost }]
+                : undefined,
+            companionUpdates: {
+              cang_ming: {
+                meet: true,
+                markSeen: true,
+                affectionDelta: 10,
+                chronicle: '你以金脉灵砂供养焦黑断玉，连古剑尊都难得夸你出手痛快。',
+              },
+            },
+          };
+        },
+        outcome: [
+          '断玉发出一声痛快剑鸣，将赤金砂砾尽数吞纳。苍溟虚影凝实了三分，难得收起毒舌顺手替你打通了两处隐脉：“算你这小辈识趣。往后遇着棘手强敌，本座多借你两成剑意。”',
+        ],
+        outcomeContinueLabel: '收起断玉离去',
+        bridgeNote: '以金脉灵砂滋养断玉，苍溟的剑魂较先前稳固不少。',
+        next: returnHubFor,
+      },
+
+      // === 卷四（金丹期 · 真剑实拆/固玉破阶、天门九枢夜谈、凝神琥珀） ===
+      {
+        id: 'v_cm_act4_real_spar',
+        label: '掷八十灵石布下隔绝灵阵，与复生剑尊提真剑实拆三十合碎天剑',
+        visible: (s) => s.act === 'act4' && s.tags.includes('cangming_reborn'),
+        requirement: { minSpiritStones: 80, lockReason: '需灵石 80' },
+        insightTags: ['金丹复生专属', '越阶绝学', '修为暴涨'],
+        effect: (s) => ({
+          timeMonths: 2,
+          spiritStones: -80,
+          might: 16,
+          mind: 6,
+          setFlags: {
+            overmatch_drill_act3: true,
+            v_cm_reborn_repeat: (s.actionUses[`${s.act}:visit_cm`] ?? 0) > 0,
+          },
+          trackActionKey: 'visit_cm',
+          companionUpdates: {
+            cang_ming: {
+              meet: true,
+              markSeen: true,
+              affectionDelta: 8,
+              chronicle: '金丹境夜院布阵与复生的他以真剑实拆三十合，剑意磨砺得愈发悍厉。',
+            },
+          },
+        }),
+        outcome: [
+          (s) =>
+            s.flags.v_cm_reborn_repeat
+              ? '八十块灵石撑起院中隔绝灵阵，苍溟拔剑出鞘，三千年前的古剑煞气扑面而来！三十合硬碰硬拆罢，石阶裂纹纵横，他收剑甩去腕间微麻，冷哼一声：“总算没白练，这一手变招比上回快了半息。”'
+              : '八十块灵石撑起院中隔绝灵阵，苍溟拔剑出鞘，三千年前的古剑煞气扑面而来！三十合硬碰硬拆罢，石阶裂纹纵横，他收剑甩去腕间微麻，冷哼一声：“久未提真剑，倒没生疏。你这一手变招也算有几分看头。”',
+        ],
+        outcomeContinueLabel: '收剑饮酒，重返尘世',
+        bridgeNote: '与复生苍溟真剑硬撼三十合，你金丹剑锋已具逆伐元婴之势。',
+        next: returnHubFor,
+      },
+      {
+        id: 'v_cm_act4_jade_refine',
+        label: '以金丹真元合八十灵石固玉，参悟三千年前破阶斩天古诀',
+        visible: (s) => s.act === 'act4' && !s.tags.includes('cangming_reborn'),
+        requirement: { minSpiritStones: 80, lockReason: '需灵石 80' },
+        insightTags: ['金丹断玉专属', '越阶绝学', '修为大进'],
+        effect: {
+          timeMonths: 2,
+          spiritStones: -80,
+          might: 14,
+          mind: 6,
+          setFlags: { overmatch_drill_act3: true },
+          trackActionKey: 'visit_cm',
+          companionUpdates: {
+            cang_ming: {
+              meet: true,
+              markSeen: true,
+              affectionDelta: 7,
+              chronicle: '金丹境以灵元固玉求道，他将长明旧世的破阶剑诀尽数传予识海。',
+            },
+          },
+        },
+        outcome: [
+          (s) =>
+            s.truthClues.includes('clue_changming_night')
+              ? '八十块灵石融作金丹清辉灌入焦黑断玉。苍溟低喝一声，将长明元年九剑尊合力撕开金光的半式残锋烙进你丹海：“元婴以前能吃透三成，九州之内便无人能单凭境界压死你！”'
+              : '八十块灵石融作金丹清辉灌入焦黑断玉。苍溟低喝一声，将三千年前旧世破阶断阵的半式残锋烙进你丹海：“元婴以前能吃透三成，九州之内便无人能单凭境界压死你！”',
+        ],
+        outcomeContinueLabel: '敛息收玉，起身视事',
+        bridgeNote: '以金丹真元固玉参悟破阶古诀，修为与越阶战力俱进。',
+        next: returnHubFor,
+      },
+      {
+        id: 'v_cm_act4_betrayal_talk',
+        label: (s) =>
+          s.truthClues.includes('clue_changming_night')
+            ? '深夜对谈长明元年血战教训，细问当年九剑尊败北之由'
+            : '深夜对谈上古剑修迎劫之道，探问他三千年前的旧憾',
+        visible: (s) => s.act === 'act4',
+        insightTags: ['金丹专属', '零花费', '心境大增'],
+        effect: {
+          timeMonths: 2,
+          mind: 13,
+          trackActionKey: 'visit_cm',
+          companionUpdates: {
+            cang_ming: {
+              meet: true,
+              markSeen: true,
+              affectionDelta: 6,
+              chronicle: '深夜追问三千年前旧事，他首次坦陈当年剑阵功败垂成的惨痛教训。',
+            },
+          },
+        },
+        outcome: [
+          (s) => {
+            const lead = s.tags.includes('cangming_reborn')
+              ? s.truthClues.includes('clue_changming_night')
+                ? '苍溟望向裂纹隐现的铅灰夜空，声音低沉得像生锈铁剑：'
+                : '苍溟望向铅灰夜空，声音低沉得像生锈铁剑：'
+              : '断玉青光在静室里沉浮微颤，苍溟的声音低沉得像生锈铁剑：';
+            return s.truthClues.includes('clue_changming_night')
+              ? `${lead}“三千年前我们不是输在剑不够快，是输在孤军冒进、错估了头顶那股威压的底细。真到了开天那一日，绝不可傻乎乎拿肉身硬接——先摸清下界阵眼与后手，才配谈劈开它。”`
+              : `${lead}“今世修士以为修到高境便能与天平坐，当年我那帮同袍也是这么想的。记住本座一句话：高天之上从来只论生杀、不讲道义，真到渡劫破关那日，留足后手、莫拿肉身硬接。”`;
+          },
+        ],
+        outcomeContinueLabel: (s) =>
+          s.tags.includes('cangming_reborn') ? '牢记旧训，辞别静夜' : '牢记旧训，敛息收玉',
+        bridgeNote: '听完太古剑尊的惨痛旧训，你对前路大劫多了一重冷静警惕。',
+        next: returnHubFor,
+      },
+      {
+        id: 'v_cm_act4_gift_amber',
+        label: '奉上一块【凝神琥珀】，替太古剑尊稳固三千年损耗的魂本',
+        visible: (s) =>
+          s.act === 'act4' && (s.market.holdings.soul_amber?.qty ?? 0) > 0,
+        insightTags: ['赠凝神琥珀', '苍溟大幅好感', '修为与心境'],
+        effect: (s) => {
+          const prev = s.market.holdings.soul_amber;
+          return {
+            timeMonths: 2,
+            might: 12,
+            mind: 8,
+            trackActionKey: 'visit_cm',
+            grantMarketGoods:
+              prev && prev.qty > 0
+                ? [{ goodId: 'soul_amber', qty: -1, unitCost: prev.avgCost }]
+                : undefined,
+            companionUpdates: {
+              cang_ming: {
+                meet: true,
+                markSeen: true,
+                affectionDelta: 10,
+                chronicle: '你送来稀世凝神琥珀替他温养三千年残损神魂，古剑尊难得动容。',
+              },
+            },
+          };
+        },
+        outcome: [
+          (s) =>
+            s.tags.includes('cangming_reborn')
+              ? '暖金琥珀一触剑气便化作绵长古息渗入眉心。苍溟闭目静受良久，睁眼时那双冷厉眸子柔和了半分：“三千年了，你是头一个肯花这么大血本给老家伙养魂的。记下了，将来必百倍还你。”'
+              : '暖金琥珀一触断玉便化作绵长古息被焦黑玉纹尽数吞纳。识海中的残魂虚影凝实了数分，静默良久方传出柔和半分的低语：“三千年了，你是头一个肯花这么大血本给老家伙养魂的。记下了，将来必百倍还你。”',
+        ],
+        outcomeContinueLabel: (s) =>
+          s.tags.includes('cangming_reborn') ? '拱手辞别，步出静院' : '敛息收玉，起身视事',
+        bridgeNote: '以凝神琥珀温养苍溟魂本，你与古剑尊早已生死相托。',
         next: returnHubFor,
       },
       {

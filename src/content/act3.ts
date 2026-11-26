@@ -6,6 +6,12 @@ import {
 } from '../engine/types';
 import { getAgeYears, toChineseYearNumber, yearsSinceAgeMonths } from '../engine/time';
 import { isSuZhiweiAlive } from './companions';
+import {
+  canCommitMajorArc,
+  evaluateCoercion,
+  getRemainingMajorArcSlots,
+  isMajorArcMissed,
+} from '../engine/systems';
 
 function foundationRealmLabel(realm: GameState['realm']): string {
   if (realm === 'foundation_mid') return '筑基中期';
@@ -14,7 +20,13 @@ function foundationRealmLabel(realm: GameState['realm']): string {
 }
 
 function isSuAliveInAct3Hearth(state: GameState): boolean {
-  if (!state.companions.su_zhiwei.met || state.flags.su_zhiwei_passed) return false;
+  if (
+    !state.companions.su_zhiwei.met ||
+    state.flags.su_zhiwei_passed ||
+    state.companions.su_zhiwei.deceased
+  ) {
+    return false;
+  }
   if (isSuZhiweiAlive(state)) return true;
   if (state.flags.hearth1_met_alive) {
     const cap = state.flags.su_zhiwei_saved_longlife ? 96 : 66;
@@ -111,7 +123,7 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
         text: '客馆门房悄悄递来一封无名剑羽密信，封蜡上印着半朵霜梅。沈清霜在信中急促写道：青云执法长老已把她软禁在云岭别院，拟于仙盟大议当众宣读她的「飞升候补」名牒，邀你务必在开议前赶赴云岭侧廊相见。',
       },
       {
-        when: (s) => Boolean(s.flags.su_zhiwei_saved_longlife),
+        when: (s) => Boolean(s.flags.su_zhiwei_saved_longlife) && isSuZhiweiAlive(s),
         text: '行囊夹层里还压着一封青州驿卒前些月转交的家书，纸页间夹着几瓣晒干的杏花。苏知微字迹清隽有力，说延寿露护住了她的肺腑，这几年身子硬朗如常，已收了两名药童，正把半生所见的凡人无灵医案逐卷誊录成册。',
       },
       {
@@ -123,7 +135,7 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
           !s.flags.blood_pill_exposed &&
           !s.flags.black_market_boom &&
           !s.flags.qingyun_elders_hostile &&
-          !s.flags.su_zhiwei_saved_longlife &&
+          !(Boolean(s.flags.su_zhiwei_saved_longlife) && isSuZhiweiAlive(s)) &&
           !s.flags.cangming_vow_sworn,
         text: '桌案上摊着三份你托青州牙行买来的舆图与公文：云岭仙盟大议的观礼帖、天机商行接管青州暗河货栈的契文抄本，还有一份标注着长明古战场雾散缺口的残图。筑基之后，九州的棋盘已摊在你眼前。',
       },
@@ -224,6 +236,33 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
         }】。二百余载寿元让寒暑在眉宇间走得极缓，可九州灵脉枯竭的速度，却比谁预想得都要急促。`,
       (s) => {
         const lines: string[] = [];
+        const remSlots = getRemainingMajorArcSlots(s, 'act3');
+        if (remSlots > 0) {
+          lines.push(
+            `【天时筹度】九州风波齐起，筑基光阴虽长却难分身四顾。本卷至多亲身介入两处九州大势（尚余${remSlots === 1 ? '一' : '两'}席）；未及兼顾之地，将随岁月自行落子。`
+          );
+        } else {
+          const missed: string[] = [];
+          if (isMajorArcMissed(s, 'act3', 'thread_act3_sect')) {
+            missed.push('云岭仙盟大议已在你缺席下落幕，沈清霜被强押入内阁候补名录');
+          }
+          if (isMajorArcMissed(s, 'act3', 'thread_act3_chamber')) {
+            missed.push('青州百宝商变无人相助，谢无咎险死还生退守暗路、商行趁机吞并半数矿权');
+          }
+          if (isMajorArcMissed(s, 'act3', 'thread_act3_hearth')) {
+            missed.push(
+              s.companions.su_zhiwei.met
+                ? '你奔波九州未能重返青州杏林，凡尘寒暑无声碾过小院'
+                : '你奔波九州未及探访青州城外杏林，凡尘寒暑无声碾过那座旧院'
+            );
+          }
+          if (isMajorArcMissed(s, 'act3', 'thread_act3_soul')) {
+            missed.push('长明古战场雾散期满，岛心【千年养魂木】已被北域大宗捷足先登');
+          }
+          if (missed.length > 0) {
+            lines.push(`【分身乏术 · 世局余波】${missed.join('；')}。`);
+          }
+        }
         if (s.activeThreads.includes('thread_act3_sect')) {
           lines.push(
             s.flags.act3_sect_step1
@@ -236,10 +275,10 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
         if (s.activeThreads.includes('thread_act3_chamber')) {
           lines.push(
             s.flags.act3_chamber_step1
-              ? '【天机总坛】暗河货栈地底的灵矿转运窟已被摸清，是时候下潜深处揭开天机商行的真正秘密。'
+              ? '【百宝商变】青州分号内鬼与老掌柜逼宫在即，转运深井与谢家兄长旧案的血证正待账堂公审。'
               : s.companions.xie_wujiu.met
-              ? '【天机总坛】天机商行青州总坛日夜吞吐灵矿，谢无咎追查多年的兄长下落似乎就埋在货栈地底。'
-              : '【天机总坛】天机商行青州总坛日夜吞吐灵矿，传闻货栈地底藏着见不得光的秘窟。'
+              ? '【百宝商变】九州断脉引发青州药荒，百宝斋内部老掌柜勾结天机商行逼宫，谢无咎处境凶险。'
+              : '【百宝商变】九州断脉引发青州药荒，百宝斋分号内乱与天机商行吞矿暗潮正在青州激荡。'
           );
         }
         if (s.activeThreads.includes('thread_act3_hearth')) {
@@ -248,7 +287,9 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
               ? isSuAliveInAct3Hearth(s)
                 ? '【青州故人】杏林院里又添新岁风霜，苏知微毕生整理的凡尘无灵医卷已近尾声。'
                 : '【青州故人】杏林旧屋已成空庐，故人留下的二十载无灵医典与玉匣正待你去收存。'
-              : '【青州故人】距当年青州别过已匆匆十余载，你容颜未改，城外杏林的故人与旧屋不知已成何等模样。'
+              : isSuZhiweiAlive(s)
+              ? '【青州故人】距当年青州别过已匆匆十余载，你容颜未改，城外杏林的故人与旧屋不知已成何等模样。'
+              : '【青州故人】岁月无情，当年城外杏林的旧屋不知如今何人守灯，遗留的医案尚未寻回。'
           );
         }
         if (s.activeThreads.includes('thread_act3_soul')) {
@@ -272,12 +313,18 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
         label: '御剑北上云岭仙盟大殿，赴九州灵脉大议查探「飞升候补」暗局',
         subtext: (s) =>
           s.companions.shen_qingshuang.met
-            ? '云岭灵脉大议风波渐起，沈清霜正深陷候补名录的暗局之中。'
-            : '云岭灵脉大议风波渐起，大殿暗处正酝酿着一桩围绕候补名录的交易。',
+            ? '云岭灵脉大议风波渐起，沈清霜正深陷候补名录暗局（须占本卷一席大势）。'
+            : '云岭灵脉大议风波渐起，大殿暗处正酝酿候补名录交易（须占本卷一席大势）。',
         visible: (s) =>
-          s.activeThreads.includes('thread_act3_sect') && !s.flags.act3_sect_step1,
-        insightTags: ['沈清霜长线', '仙盟秘辛', '修为与声望'],
-        effect: { timeMonths: 8, beatDelta: 1 },
+          s.activeThreads.includes('thread_act3_sect') &&
+          !s.flags.act3_sect_step1 &&
+          canCommitMajorArc(s, 'act3', 'thread_act3_sect'),
+        insightTags: ['云岭大议', '仙盟秘辛', '占一席天时大势'],
+        effect: {
+          timeMonths: 8,
+          beatDelta: 1,
+          commitMajorArc: { act: 'act3', threadId: 'thread_act3_sect' },
+        },
         next: 'act3_arc_sect_1',
       },
       {
@@ -291,23 +338,28 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
         visible: (s) =>
           s.activeThreads.includes('thread_act3_sect') &&
           Boolean(s.flags.act3_sect_step1),
-        insightTags: ['得真相【仙盟百年贡约】', '斩天剑胚/仙盟客卿', '沈清霜终章'],
+        insightTags: ['得真相【仙盟百年贡约】', '斩天剑胚或仙盟客卿', '秘阁破枷'],
         effect: { timeMonths: 2, beatDelta: 1 },
         next: 'act3_arc_sect_2',
       },
       {
         id: 'hub3_chamber_1',
         category: 'story',
-        label: '夜探天机商行青州总坛暗河货栈，查清倒流灵矿的去向',
+        label: '驰赴青州百宝分号，查探商号内变、断脉药荒与旧押运卒秘闻',
         subtext: (s) =>
           s.companions.xie_wujiu.met
-            ? '天机商行青州总坛货船夜夜吞吐灵矿，谢无咎已在暗河外围布下耳目。'
-            : '天机商行青州总坛货船夜夜吞吐灵矿，运河水闸之下必藏隐秘。',
+            ? '百宝斋老掌柜勾结天机商行逼宫夺权，谢无咎兄长旧案露出惊人内鬼（须占本卷一席大势）。'
+            : '断脉引发青州药荒，百宝分号内乱背后牵扯着一桩十年前的旧案（须占本卷一席大势）。',
         visible: (s) =>
           s.activeThreads.includes('thread_act3_chamber') &&
-          !s.flags.act3_chamber_step1,
-        insightTags: ['谢无咎长线', '暗市情报', '商行冲突'],
-        effect: { timeMonths: 8, beatDelta: 1 },
+          !s.flags.act3_chamber_step1 &&
+          canCommitMajorArc(s, 'act3', 'thread_act3_chamber'),
+        insightTags: ['百宝内变', '青州药荒', '占一席天时大势'],
+        effect: {
+          timeMonths: 8,
+          beatDelta: 1,
+          commitMajorArc: { act: 'act3', threadId: 'thread_act3_chamber' },
+        },
         next: 'act3_arc_chamber_1',
       },
       {
@@ -315,13 +367,13 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
         category: 'story',
         label: (s) =>
           s.companions.xie_wujiu.met
-            ? '深入天机总坛地底密窟，直面抽灵天梯与谢无咎兄长的遗物'
-            : '深入天机总坛地底密窟，直面抽灵天梯与地底灵矿秘库',
-        subtext: '暗河水闸已破，地底密窟中的转运阵眼正缓缓运转。',
+            ? '入百宝总账堂公审内鬼，验明兄长残佩灵灰并直面天机金丹管事'
+            : '入百宝总账堂直面商变终局，验明转运井灵灰并与金丹管事周旋',
+        subtext: '老掌柜已引天机商行金丹大管事赴堂镇压，商道仁心与越阶博弈一触即发。',
         visible: (s) =>
           s.activeThreads.includes('thread_act3_chamber') &&
           Boolean(s.flags.act3_chamber_step1),
-        insightTags: ['得真相【抽灵天梯】', '灵脉契/凝丹丸', '谢无咎终章'],
+        insightTags: ['得真相【转运井灵灰】', '灵脉契与凝丹丸', '总账公审'],
         effect: { timeMonths: 2, beatDelta: 1 },
         next: 'act3_arc_chamber_2',
       },
@@ -329,12 +381,17 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
         id: 'hub3_hearth_1',
         category: 'story',
         label: '越过十余载光阴重返青州城外，踏访旧日杏林医馆',
-        subtext: '数载静修流转后重归青州，此行将跨过十五载凡尘岁月。',
+        subtext: '数载静修流转后重归青州，此行将跨过十五载凡尘岁月（须占本卷一席大势）。',
         visible: (s) =>
           s.activeThreads.includes('thread_act3_hearth') &&
-          !s.flags.act3_hearth_step1,
-        insightTags: ['岁月跨度十五载', '苏知微终章', '无灵归尘印'],
-        effect: { timeMonths: 180, beatDelta: 1 },
+          !s.flags.act3_hearth_step1 &&
+          canCommitMajorArc(s, 'act3', 'thread_act3_hearth'),
+        insightTags: ['岁月跨度十五载', '杏林旧约', '占一席天时大势'],
+        effect: {
+          timeMonths: 180,
+          beatDelta: 1,
+          commitMajorArc: { act: 'act3', threadId: 'thread_act3_hearth' },
+        },
         next: 'act3_arc_hearth_1',
       },
       {
@@ -351,7 +408,7 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
         visible: (s) =>
           s.activeThreads.includes('thread_act3_hearth') &&
           Boolean(s.flags.act3_hearth_step1),
-        insightTags: ['得【无灵归尘印】', '红尘守灯人', '可步入红尘结局'],
+        insightTags: ['得【无灵归尘印】', '红尘守灯人', '红尘归途'],
         effect: { timeMonths: 12, beatDelta: 1 },
         next: 'act3_arc_hearth_2',
       },
@@ -359,11 +416,17 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
         id: 'hub3_soul_1',
         category: 'story',
         label: '赴西北长明古战场荒泽，查探千年养魂木与上古反抗者遗痕',
-        subtext: '荒泽黑雾难得退开一角，各宗筑基修士已纷纷潜往南岸。',
+        subtext: '荒泽黑雾难得退开一角，各宗筑基修士已纷纷潜往南岸（须占本卷一席大势）。',
         visible: (s) =>
-          s.activeThreads.includes('thread_act3_soul') && !s.flags.act3_soul_step1,
-        insightTags: ['苍溟长线', '斩天会线索', '古战场雾散'],
-        effect: { timeMonths: 9, beatDelta: 1 },
+          s.activeThreads.includes('thread_act3_soul') &&
+          !s.flags.act3_soul_step1 &&
+          canCommitMajorArc(s, 'act3', 'thread_act3_soul'),
+        insightTags: ['古战荒泽', '斩天会线索', '占一席天时大势'],
+        effect: {
+          timeMonths: 9,
+          beatDelta: 1,
+          commitMajorArc: { act: 'act3', threadId: 'thread_act3_soul' },
+        },
         next: 'act3_arc_soul_1',
       },
       {
@@ -374,7 +437,7 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
         visible: (s) =>
           s.activeThreads.includes('thread_act3_soul') &&
           Boolean(s.flags.act3_soul_step1),
-        insightTags: ['得【千年养魂木】', '苍溟重塑关键', '古战场决战'],
+        insightTags: ['得【千年养魂木】', '苍溟重塑关键', '孤岛争木'],
         effect: { timeMonths: 2, beatDelta: 1 },
         next: 'act3_arc_soul_2',
       },
@@ -384,17 +447,18 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
         id: 'hub3_cross_leads',
         category: 'story',
         label: '打听青州与九州四方异动，借公开榜文与舆图切入其余风波',
-        subtext: '可借仙盟观礼榜、商路旧闻与古战场海图切入尚未开启的九州大势。',
+        subtext: '可借仙盟观礼榜、商路旧闻与古战场海图切入尚未探访的九州大势。',
         visible: (s) =>
-          (!s.activeThreads.includes('thread_act3_sect') &&
+          getRemainingMajorArcSlots(s, 'act3') > 0 &&
+          ((!s.activeThreads.includes('thread_act3_sect') &&
             !s.completedThreads.includes('thread_act3_sect')) ||
-          (!s.activeThreads.includes('thread_act3_chamber') &&
-            !s.completedThreads.includes('thread_act3_chamber')) ||
-          (!s.activeThreads.includes('thread_act3_hearth') &&
-            !s.completedThreads.includes('thread_act3_hearth')) ||
-          (!s.activeThreads.includes('thread_act3_soul') &&
-            !s.completedThreads.includes('thread_act3_soul')),
-        insightTags: ['零耗时打听', '开启其余九州大势'],
+            (!s.activeThreads.includes('thread_act3_chamber') &&
+              !s.completedThreads.includes('thread_act3_chamber')) ||
+            (!s.activeThreads.includes('thread_act3_hearth') &&
+              !s.completedThreads.includes('thread_act3_hearth')) ||
+            (!s.activeThreads.includes('thread_act3_soul') &&
+              !s.completedThreads.includes('thread_act3_soul'))),
+        insightTags: ['不耗光阴打听', '探查其余九州大势'],
         next: 'act3_cross_leads',
       },
 
@@ -411,15 +475,15 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
             reason: '筑基灵液已达当前圆满极限，须历大势风波或直接叩问金丹大关',
           },
         },
-        insightTags: ['自主闭关', '限2回'],
+        insightTags: ['自主闭关', '本卷限二回'],
         next: 'act3_action_cultivate',
       },
       {
         id: 'hub3_commission',
         category: 'plan',
         label: '青州行迹：金榜筑基委托与御剑巡游山川',
-        subtext: '揭青州金榜赚取二三百灵石（限2回），或御剑巡游古道感悟世情（限3回）。',
-        insightTags: ['零耗时择行', '悬赏与巡游'],
+        subtext: '揭青州金榜赚取二三百灵石（限二回），或御剑巡游古道感悟世情（限三回）。',
+        insightTags: ['不耗光阴', '悬赏与巡游'],
         next: 'act3_action_commission',
       },
       {
@@ -449,7 +513,7 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
             !s.flags.cangming_sealed &&
             s.companions.cang_ming.stance !== 'estranged' &&
             s.companions.cang_ming.stance !== 'rival'),
-        insightTags: ['零耗时择访', '深化故人情谊'],
+        insightTags: ['不耗光阴择访', '深化故人情谊'],
         next: 'act3_companion_visit',
       },
 
@@ -467,21 +531,33 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
             ready.push('灵脉契配百石可布阵');
           } else if (s.relics.includes('spirit_vein_deed')) {
             ready.push('手握灵脉契（尚差百石阵引）');
+          } else {
+            const hasVeinArrayPrereq =
+              s.tags.includes('merchant_fame') ||
+              s.tags.includes('dark_market_broker') ||
+              s.tags.includes('alliance_envoy') ||
+              s.mind >= 95;
+            if (hasVeinArrayPrereq && s.spiritStones >= 420) {
+              ready.push('阵理与四百二十灵石齐备可布九宫阵');
+            }
           }
+          const hasSwordRoot =
+            s.tags.includes('sword_intent_seed') ||
+            s.tags.includes('cangming_pact') ||
+            s.flags.foundation_grade === 'sword_ancient';
           if (
             s.relics.includes('soul_nourishing_wood') &&
             s.companions.cang_ming.met &&
             s.companions.cang_ming.stance !== 'estranged' &&
-            s.companions.cang_ming.stance !== 'rival'
+            s.companions.cang_ming.stance !== 'rival' &&
+            s.companions.cang_ming.affection >= 45 &&
+            hasSwordRoot
           ) {
             ready.push('可借养魂木与苍溟古法');
           }
-          if (s.spiritStones >= 380) {
-            ready.push('灵石足布九宫阵');
-          }
           return ready.length > 0
             ? `眼下筹备：${ready.join(' · ')}，已具叩问金丹之底气。`
-            : '结丹九死一生，若无丹药、灵脉契或重金大阵护道，唯凭极深厚的修为与心境方敢强闯。';
+            : '结丹九死一生，若无丹药、灵脉契、四百二十灵石九宫大阵或苍溟剑丹古法护道，唯凭极深厚的修为与心境方敢强闯。';
         },
         visible: (s) =>
           s.actBeat >= 3 ||
@@ -514,31 +590,35 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
         id: 'hub3_open_sect',
         category: 'story',
         label: '揭下云岭仙盟广发的筑基观礼榜文，主动北上插手灵脉大议',
-        subtext: '切入【仙盟大议与沈清霜破枷】长线。',
+        subtext: '介入【云岭仙盟大议与沈清霜破枷】之局（须占本卷一席大势）。',
         visible: (s) =>
           !s.activeThreads.includes('thread_act3_sect') &&
-          !s.completedThreads.includes('thread_act3_sect'),
-        insightTags: ['开启仙盟大议线', '沈清霜缘分'],
+          !s.completedThreads.includes('thread_act3_sect') &&
+          canCommitMajorArc(s, 'act3', 'thread_act3_sect'),
+        insightTags: ['入云岭仙盟大议', '占一席天时大势'],
         effect: {
           timeMonths: 6,
           beatDelta: 1,
           activateThreads: ['thread_act3_sect'],
+          commitMajorArc: { act: 'act3', threadId: 'thread_act3_sect' },
         },
         next: 'act3_arc_sect_1',
       },
       {
         id: 'hub3_open_chamber',
         category: 'story',
-        label: '循青州矿商的暗线怨言，追查天机商行私吞灵矿的总坛货栈',
-        subtext: '切入【天机总坛与谢无咎复仇】长线。',
+        label: '循青州药荒与商帮风声，介入百宝斋内变与十年前押运旧案',
+        subtext: '介入【青州百宝商变与谢无咎蜕变】之局（须占本卷一席大势）。',
         visible: (s) =>
           !s.activeThreads.includes('thread_act3_chamber') &&
-          !s.completedThreads.includes('thread_act3_chamber'),
-        insightTags: ['开启天机总坛线', '谢无咎缘分'],
+          !s.completedThreads.includes('thread_act3_chamber') &&
+          canCommitMajorArc(s, 'act3', 'thread_act3_chamber'),
+        insightTags: ['入青州百宝商变', '占一席天时大势'],
         effect: {
           timeMonths: 6,
           beatDelta: 1,
           activateThreads: ['thread_act3_chamber'],
+          commitMajorArc: { act: 'act3', threadId: 'thread_act3_chamber' },
         },
         next: 'act3_arc_chamber_1',
       },
@@ -546,15 +626,17 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
         id: 'hub3_open_hearth',
         category: 'story',
         label: '听闻青州城外有位凡医专录无灵疫案二十载，趁行途南下杏林一访',
-        subtext: '切入【青州二十载 · 杏林传灯】长线（推进十五载光阴）。',
+        subtext: '赴【青州二十载 · 杏林传灯】之约（跨过十五载光阴，须占本卷一席大势）。',
         visible: (s) =>
           !s.activeThreads.includes('thread_act3_hearth') &&
-          !s.completedThreads.includes('thread_act3_hearth'),
-        insightTags: ['开启青州杏林线', '可得无灵归尘印'],
+          !s.completedThreads.includes('thread_act3_hearth') &&
+          canCommitMajorArc(s, 'act3', 'thread_act3_hearth'),
+        insightTags: ['赴青州杏林旧约', '占一席天时大势'],
         effect: {
           timeMonths: 180,
           beatDelta: 1,
           activateThreads: ['thread_act3_hearth'],
+          commitMajorArc: { act: 'act3', threadId: 'thread_act3_hearth' },
         },
         next: 'act3_arc_hearth_1',
       },
@@ -562,15 +644,17 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
         id: 'hub3_open_soul',
         category: 'story',
         label: '自青州舆图铺购得长明古战场雾退海图，动身前往荒泽寻养魂木',
-        subtext: '切入【长明古战场寻木】长线。',
+        subtext: '赴【长明古战场寻木】之行（须占本卷一席大势）。',
         visible: (s) =>
           !s.activeThreads.includes('thread_act3_soul') &&
-          !s.completedThreads.includes('thread_act3_soul'),
-        insightTags: ['开启古战场寻木线', '可得千年养魂木'],
+          !s.completedThreads.includes('thread_act3_soul') &&
+          canCommitMajorArc(s, 'act3', 'thread_act3_soul'),
+        insightTags: ['赴古战场寻木', '占一席天时大势'],
         effect: {
           timeMonths: 6,
           beatDelta: 1,
           activateThreads: ['thread_act3_soul'],
+          commitMajorArc: { act: 'act3', threadId: 'thread_act3_soul' },
           setFlags: { act3_battlefield_open: true },
         },
         next: 'act3_arc_soul_1',
@@ -1016,7 +1100,7 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
         text: (s) =>
           isXieHostile(s)
             ? '你搁下【百宝斋玄铁令】，楼中管事瞥了一眼便神色一冷，将木牌推回案沿：“谢少东家早已销了阁下这块铁令的账，今日奇物一律照市价算。”'
-            : '你随手将【百宝斋玄铁令】搁在茶案边，楼中管事神色一肃，亲自奉上明前灵茶，压低声音道：“谢少东家早有交代，阁下今日竞拍奇物，照旧享八五折礼遇。”',
+            : '你随手将【百宝斋玄铁令】搁在茶案边，楼中管事神色一肃，亲自奉上明前灵茶，压低声音道：“谢少东家早有交代，阁下今日竞拍奇物，照旧享折让一成半礼遇。”',
       },
       {
         when: (s) => s.relics.includes('spirit_vein_deed'),
@@ -1058,7 +1142,10 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
       {
         when: (s) =>
           s.companions.shen_qingshuang.met && !isShenHostile(s),
-        text: '散会歇息时，你依着剑羽信中约定的暗记转入大殿西侧梅廊。沈清霜一袭素白剑袍立在廊柱阴影里，袖中指节微凉，迅速将一枚铜钥滑进你掌心：“那是封宴夜仙盟秘阁偏门的钥匙。长老们把三宗与上界使者签的百年贡约锁在里头，阁底寒坛还封着一柄前朝遗下的【斩天剑胚】。封宴那晚若不破枷，明年开春我便会被送进禁地丹炉。”',
+        text: (s) =>
+          s.flags.qingyun_elders_hostile
+            ? '散会歇息时，你依着剑羽信中约定的暗记转入大殿西侧梅廊。沈清霜一袭素白剑袍立在廊柱阴影里，袖中指节微凉，迅速将一枚铜钥滑进你掌心：“那是封宴夜仙盟秘阁偏门的钥匙。长老们把三宗与上界使者签的百年贡约锁在里头，阁底寒坛还封着一柄前朝遗下的【斩天剑胚】。封宴那晚若不破枷，明年开春我便会被送去充作百年大贡的飞升候补，再无归期。”'
+            : '散会歇息时，你在大殿西侧梅廊寻见了避开人群的沈清霜。她一袭素白剑袍立在廊柱阴影里，见是你来，微凉指节迅速将一枚铜钥滑进你掌心：“那是封宴夜仙盟秘阁偏门的钥匙。长老们把三宗与上界使者签的百年贡约锁在里头，阁底寒坛还封着一柄前朝遗下的【斩天剑胚】。封宴那晚若不破枷，明年开春我便会被送去充作百年大贡的飞升候补，再无归期。”',
       },
       {
         when: (s) => s.companions.shen_qingshuang.met && isShenHostile(s),
@@ -1069,7 +1156,7 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
       },
       {
         when: (s) => !s.companions.shen_qingshuang.met,
-        text: '你冷眼旁观。那名白衣女修沈清霜接过候补玉牌时，指腹竟把玉沿捏出了细裂。退席后你在梅廊拦住她，压低声音道出早年在青岚听闻的「天门无归」旧疑。沈清霜眸光骤凝，审视你片刻方才开口：“你既知飞升是局，封宴夜仙盟秘阁必有铁证。敢不敢同走一遭？”',
+        text: '你冷眼旁观。那名白衣女修沈清霜接过候补玉牌时，指腹竟把玉沿捏出了细裂。退席后你在梅廊拦住她，压低声音道出早年在青岚听闻的「天门无归」旧疑。沈清霜眸光骤凝，审视你片刻后自袖中悄然露出一枚偏门铜钥：“你既知飞升是局，封宴夜仙盟秘阁必有铁证，里头还封着一柄前朝【斩天剑胚】。敢不敢同走一遭？”',
       },
     ],
     choices: [
@@ -1079,29 +1166,33 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
         subtext: '彻底与仙盟顽固高层撕破脸，换沈清霜自由与斩天重宝。',
         visible: (s) => !isShenHostile(s),
         insightTags: ['沈清霜深厚信任', '备战秘阁破枷', '修为与正道'],
-        effect: {
-          might: 8,
-          mind: 6,
-          righteous: 8,
-          setFlags: {
-            act3_sect_step1: true,
-            act3_sect_conflict: true,
-            act3_sect_plan: 'heist',
-          },
-          companionUpdates: {
-            shen_qingshuang: {
-              meet: true,
-              markSeen: true,
-              affectionDelta: 14,
-              chronicle:
-                '云岭梅廊重逢，你毫不犹豫接下秘阁铜钥，愿陪她于封宴之夜斩断仙盟枷锁。',
+        effect: (s) => {
+          const metBefore = s.companions.shen_qingshuang.met;
+          return {
+            might: 8,
+            mind: 6,
+            righteous: 8,
+            setFlags: {
+              act3_sect_step1: true,
+              act3_sect_conflict: true,
+              act3_sect_plan: 'heist',
             },
-          },
-          logSummary:
-            '赴云岭仙盟大议与沈清霜密议，定下封宴夜闯仙盟秘阁破枷之计。',
+            companionUpdates: {
+              shen_qingshuang: {
+                meet: true,
+                markSeen: true,
+                affectionDelta: 14,
+                chronicle: metBefore
+                  ? '云岭梅廊重逢，你毫不犹豫接下秘阁铜钥，愿陪她于封宴之夜斩断仙盟枷锁。'
+                  : '云岭梅廊初逢，你毫不犹豫接下秘阁铜钥，愿陪她于封宴之夜斩断仙盟枷锁。',
+              },
+            },
+            logSummary:
+              '赴云岭仙盟大议与沈清霜密议，定下封宴夜闯仙盟秘阁破枷之计。',
+          };
         },
         outcome: [
-          '你攥紧那枚还带着她掌心微温的铜钥，压低声音道：“既叫飞升候补，不如就让全九州看看，仙盟到底把弟子送进了什么地方。”',
+          '你接过并攥紧那枚还带着她掌心微温的铜钥，压低声音道：“既叫飞升候补，不如就让全九州看看，仙盟到底把弟子送进了什么地方。”',
           '沈清霜紧绷的肩线松了半分。她将秘阁三道阵纹的生门画在你掌心，随即在巡殿执事转过廊角前抽身离去：“两月后封宴亥时，秘阁青铜门外见。”',
         ],
         outcomeContinueLabel: '暗记阵位 · 退回客馆整备',
@@ -1173,6 +1264,12 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
             act3_sect_conflict: true,
             act3_sect_plan: 'rival',
           },
+          companionUpdates: {
+            shen_qingshuang: {
+              meet: true,
+              markSeen: true,
+            },
+          },
           logSummary:
             '云岭大议上冷眼旁观沈清霜困局，决意在封宴之夜借机抢夺仙盟秘阁重宝。',
         },
@@ -1197,7 +1294,20 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
     checkpoint: true,
     checkpointLabel: '卷三 · 仙盟秘阁抉择',
     paragraphs: [
-      '封宴亥时。前殿丝竹喧天，后山秘阁却静得只闻寒风刮过檐铃。玄铁密室中央供着赤铜封匣。匣中血契墨迹森然，正是三大正宗千年前与上界签下的【仙盟百年贡约】：每百年举荐三名天骄入炉献祭，换主峰灵脉缓枯。字字如冰。',
+      '封宴亥时。前殿丝竹喧天，后山秘阁却静得只闻寒风刮过檐铃。玄铁密室中央供着赤铜封匣。匣中血契墨迹森然，正是三大正宗千年前与上界签下的【仙盟百年贡约】：每百年举荐三名天骄充作飞升候补，并定期上交灵石矿税。',
+      '然而与你先前设想的纯粹勾结不同，血契末页附着一卷历代太乙长老的泣血按语——上面赫然写着：“千年前域外天幕频现裂纹，上界使者言明，唯有下界按期奉上灵脉与化神道种，上界方肯赐力稳固界壁不崩。我等手送亲传弟子赴天门，非贪荣华，实为替九州亿万生灵续命百年！”',
+      (s) => {
+        const refutations: string[] = [];
+        if (s.truthClues.includes('clue_tianji_portal')) {
+          refutations.push('转运井底化作药渣的灵灰');
+        }
+        if (s.truthClues.includes('clue_changming_night')) {
+          refutations.push('长明元年焚灭九位剑尊的烬火');
+        }
+        return refutations.length > 0
+          ? `你指尖微冷：若未见过${refutations.join('与')}，几乎真要信了这份冠冕堂皇的“保命贡约论”！所谓护界之约，究竟是不得已的妥协，还是上界用来驯服正道宗门的弥天大谎？`
+          : '读罢这段按语，你心头骤然沉重几分——若仙盟长老所言不虚，掀翻贡约会不会反令九州天幕崩塌？在找到更硬的物证戳穿之前，这桩三千年旧案远比表面复杂。';
+      },
       '密室最深处的寒冰石台上，斜插着一柄尚未刻铭的漆黑剑胚。你刚靠近三步，腰间佩剑便发出低沉嗡鸣，青石地板凝起一层薄霜。那便是长明旧纪遗落的【斩天剑胚】。',
       {
         when: (s) => Boolean(s.flags.ev_broken_sword_note),
@@ -1253,8 +1363,11 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
             shen_qingshuang: {
               meet: true,
               markSeen: true,
-              affectionDelta: 26,
-              setStance: 'bonded',
+              affectionDelta: 18,
+              setStance:
+                s.companions.shen_qingshuang.affection + 18 >= 75
+                  ? 'bonded'
+                  : 'confidant',
               setStage: 4,
               chronicle:
                 '仙盟秘阁之夜，她当众斩碎飞升候补玉牌，与你携【斩天剑胚】杀出云岭，自此叛离宗门与你并肩逆天。',
@@ -1275,58 +1388,156 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
       },
       {
         id: 'sect2_cunning_compromise',
-        label: '迅速拓印百年贡约留作把柄，反凭铁证逼仙盟务实派长老密谈妥协',
-        subtext: (s) =>
-          isShenHostile(s)
-            ? '不动干戈换取【仙盟客卿】印与重金，把仙盟把柄攥进自己手里。'
-            : '不动干戈换取【仙盟客卿】印与重金，替沈清霜改派外巡避开丹炉。',
-        insightTags: [
-          '得真相【仙盟百年贡约】',
-          '命格【仙盟客卿】',
-          '灵石180与高声望',
-        ],
-        effect: (s) => ({
-          mind: 12,
-          renown: 18,
-          spiritStones: 180,
-          worldly: 10,
-          addTags: ['alliance_envoy'],
-          addTruthClues: ['clue_alliance_pact'],
-          completeThreads: ['thread_act3_sect'],
-          setFlags: {
-            act3_sect_compromise: true,
-            sect2_compromise_hostile_shen: isShenHostile(s),
-          },
-          companionUpdates: !isShenHostile(s)
-            ? {
-                shen_qingshuang: {
-                  meet: true,
-                  markSeen: true,
-                  affectionDelta: 10,
-                  setStage: 4,
-                  chronicle:
-                    '你以百年贡约副本逼退顽固长老，替她争来外巡九州的喘息之机，两人约定暗中积蓄结丹之力。',
+        label: '迅速拓印百年贡约留作把柄，反凭铁证逼仙盟金丹长老密谈妥协',
+        subtext: (s) => evaluateCoercion(s, 'act3_sect_elder').warningText,
+        insightTags: (s) => {
+          const ev = evaluateCoercion(s, 'act3_sect_elder');
+          return ev.canSucceed
+            ? [
+                `底牌已成：${ev.leverageSummary}`,
+                '命格【仙盟客卿】（后续斩天盟忌惮）',
+                '灵石180与高声望',
+              ]
+            : [
+                '【极险】无内线/越阶战力压阵',
+                ev.canSurviveFail ? '恐遭金丹长老灭口重伤遁走' : '恐遭金丹长老当场格杀（陨落）',
+              ];
+        },
+        effect: (s): ChoiceEffect => {
+          const ev = evaluateCoercion(s, 'act3_sect_elder');
+          if (!ev.canSucceed) {
+            if (!ev.canSurviveFail) {
+              return {
+                timeMonths: 0,
+                setFlags: {
+                  killed_by_silencing: true,
+                  silencing_killer: '云岭仙盟执法金丹长老',
+                  silencing_context: 'act3_sect',
+                  sect2_coercion_result: 'killed',
                 },
-              }
-            : undefined,
-          logSummary: isShenHostile(s)
-            ? '暗拓【仙盟百年贡约】反向拿捏仙盟高层，独取【仙盟客卿】印与重金封口。'
-            : '暗拓【仙盟百年贡约】反向拿捏仙盟高层，获授【仙盟客卿】印并换得沈清霜外巡避祸。',
-        }),
+                logSummary: '筑基之身无内线死手亦无越阶实力，在仙盟秘阁亮贡约威胁金丹长老，遭当场镇杀灭口。',
+              };
+            }
+            return {
+              timeMonths: 6,
+              might: -5,
+              lifespanBonus: -6,
+              addTags: ['sect_rebel'],
+              removeRelics: s.relics.includes('qingyun_sword_tally')
+                ? ['qingyun_sword_tally']
+                : undefined,
+              addTruthClues: ['clue_alliance_pact'],
+              completeThreads: ['thread_act3_sect'],
+              setFlags: {
+                qingyun_elders_hostile: true,
+                escaped_silencing_act3_sect: true,
+                sect2_coercion_result: 'escaped',
+              },
+              companionUpdates: !isShenHostile(s)
+                ? {
+                    shen_qingshuang: {
+                      markSeen: true,
+                      affectionDelta: -4,
+                      chronicle: '秘阁内你误判形势欲空手要挟金丹长老，险遭灭口，全靠保命底牌血战逃出云岭。',
+                    },
+                  }
+                : undefined,
+              logSummary: '无底牌在仙盟秘阁强胁金丹长老反遭灭口，折寿六载重伤逃出云岭，反被通缉为叛逆。',
+            };
+          }
+
+          return {
+            mind: 12,
+            renown: 18,
+            spiritStones: 180,
+            worldly: 10,
+            addTags: ['alliance_envoy'],
+            addTruthClues: ['clue_alliance_pact'],
+            completeThreads: ['thread_act3_sect'],
+            setFlags: {
+              act3_sect_compromise: true,
+              sect2_compromise_hostile_shen: isShenHostile(s),
+              sect2_coercion_result: 'success',
+              sect2_used_power: ev.powerOk,
+              sect2_used_switch: ev.switchOk,
+            },
+            companionUpdates: {
+              ...(!isShenHostile(s)
+                ? {
+                    shen_qingshuang: {
+                      meet: true,
+                      markSeen: true,
+                      affectionDelta: 6,
+                      setStage: 4,
+                      chronicle:
+                        '你借暗线筹码与铁证逼退顽固长老，替她争来外巡避祸之机，但你也正式挂上了仙盟客卿之印。',
+                    },
+                  }
+                : {}),
+              ...(s.companions.cang_ming.met && s.companions.cang_ming.stance !== 'estranged'
+                ? {
+                    cang_ming: {
+                      affectionDelta: -8,
+                      chronicle: '见你接下仙盟客卿玄印与顽固长老妥协，他在断玉里冷嗤了一声。',
+                    },
+                  }
+                : {}),
+            },
+            logSummary: isShenHostile(s)
+              ? '凭暗约与底牌反挟仙盟金丹长老，独取【仙盟客卿】印与百八灵石封口。'
+              : '凭暗约与底牌反挟仙盟金丹长老，获授【仙盟客卿】印并换得沈清霜外巡避祸。',
+          };
+        },
         outcome: [
-          '你按住剑柄。灵符一闪便拓尽【仙盟百年贡约】，执事破门前夕你反将一角血契故意亮在灯火下，赶来的太乙丹谷长老脸色剧变，当场喝退青云弟子请你偏殿密谈。一招反客为主。',
-          (s) =>
-            s.flags.sect2_compromise_hostile_shen
-              ? '三炷香定案。你暂不公开血契，仙盟赐下【仙盟客卿】玄印并奉一百八十灵石封口，早已反目的沈清霜趁乱携残页退入山雾，你未替她多说半字。'
-              : '三炷香后交易落定：你暂不公开血契，仙盟则赐你【仙盟客卿】玄印、奉上一百八十块灵石封口，并改令沈清霜离山外巡九州灵矿，暂缓「飞升候补」入阁之期。',
-          '步出白玉大殿时天已微亮。手中客卿印通行各大灵矿，只是你知道，这纸妥协撑不过下一个百年，真正的清算早晚会来。',
+          (s) => {
+            if (s.flags.sect2_coercion_result === 'killed') {
+              return '你刚亮出一角拓下的血契，破门而入的仙盟金丹长老便袖袍一甩、金印轰然镇落，嗓音威严冰冷：“放肆！小小筑基散修，无宗无凭也敢窃持仙盟秘录胁迫长老？此殿禁制隔绝万里，今日就地正法，谁知晓你曾踏足云岭半步！”';
+            }
+            if (s.flags.sect2_coercion_result === 'escaped') {
+              return '你刚亮出血契威胁，破门而入的金丹长老便寒眉倒竖，冷哼如雷：“连个外应都未布置，便敢在云岭秘阁挟制金丹？清理门户，可比与你讨价还价省事百倍！”金丹威压如泰山压顶，一记赤金掌印直拍天灵！';
+            }
+            if (s.flags.sect2_used_switch) {
+              if (s.flags.act3_sect_plan === 'diplomacy') {
+                return '执事破门前夕，你从容亮出血契拓影与先前太乙主战派执事签押的暗约玉简：“太乙丹谷偏殿与青州多处茶楼各压着一份抄本，若我今夜死在秘阁，天明前全九州便会看见仙盟百年贡约！”赶来的金丹长老脸色剧变，喝退弟子请你入偏殿密谈。';
+              }
+              const hasBaibaoNet = Boolean(
+                s.flags.xie_deadman_switch ||
+                  (s.relics.includes('baibao_token') &&
+                    !isXieHostile(s) &&
+                    s.companions.xie_wujiu.affection >= 25) ||
+                  (s.daoPartnerId === 'xie_wujiu' && !isXieHostile(s))
+              );
+              const netPhrase = hasBaibaoNet
+                ? '百宝暗网与青州多处茶楼'
+                : '青岚与青州多处暗桩茶楼';
+              return `执事破门前夕，你从容亮出血契拓影与早就分寄暗桩的死手回执：“${netPhrase}已压下连环死手密信，若我今夜死在秘阁，天明前全九州便会看见仙盟百年贡约！”赶来的金丹长老脸色剧变，喝退弟子请你入偏殿密谈。`;
+            }
+            return '金丹长老本欲出手灭口，却在掌风触及你身前三尺时骇然止步——你周身勃发的越阶剑意竟震裂了他护身法袍！眼见强杀必闹出惊天动静引来前殿百余宗门观礼修士，长老脸色铁青，终究喝退弟子请你入偏殿密谈。';
+          },
+          (s) => {
+            if (s.flags.sect2_coercion_result === 'killed') {
+              return '金丹杀意碾碎了你所有防御，你的元神与血契拓纸一同化作飞灰。次日云岭大议照常举行，无人知道秘阁石砖下多了一缕不甘的筑基残魂。';
+            }
+            if (s.flags.sect2_coercion_result === 'escaped') {
+              return '危急关头你燃尽保命底牌硬扛下金丹一击，经脉焦裂、呕血撞穿秘阁暗窗坠入云雾！折损六载寿元狼狈逃回青州后，仙盟通缉令已贴满大街。你靠在冷巷墙根缓缓喘定，指间残纸犹带焦烟。';
+            }
+            return s.flags.sect2_compromise_hostile_shen
+              ? '三炷香定案。长老沉声苦辩百年贡约乃为“替九州稳住天幕不崩”，你暂不公开血契，仙盟赐下【仙盟客卿】玄印并奉一百八十灵石封口。你深知此印必令反抗者对你心生忌惮，却也换来了实实在在的通行权势。'
+              : '三炷香后交易落定。长老苦辩百年贡约乃为“换上界稳住九州界壁”，你暂不公开血契，仙盟赐你【仙盟客卿】玄印、奉百八灵石，并改令沈清霜离山外巡暂缓入阁。只是手握此印，往后若遇真正反抗仙盟之人，只怕难再轻信于你。';
+          },
         ],
-        outcomeContinueLabel: '佩客卿印下山 · 返回青州',
+        outcomeContinueLabel: (s) =>
+          s.flags.sect2_coercion_result === 'killed'
+            ? '秘阁灭口 · 展卷终局'
+            : s.flags.sect2_coercion_result === 'escaped'
+            ? '重伤遁出云岭 · 返回青州'
+            : '佩客卿印下山 · 返回青州',
         bridgeNote: (s) =>
-          s.flags.sect2_compromise_hostile_shen
-            ? '你以百年贡约逼得仙盟妥协，身佩【仙盟客卿】印与重金下山。'
-            : '你以百年贡约逼得仙盟妥协，身佩【仙盟客卿】印下山，也替沈清霜争得了宝贵的喘息岁月。',
-        next: 'act3_hub',
+          s.flags.sect2_coercion_result === 'escaped'
+            ? '空手威胁金丹长老反遭灭口重创，你折寿逃出云岭，从此上了仙盟通缉榜。'
+            : '你凭暗线筹码与铁证逼得仙盟妥协，身佩【仙盟客卿】印下山。',
+        next: (s) =>
+          s.flags.sect2_coercion_result === 'killed' ? 'ending_silenced' : 'act3_hub',
       },
       {
         id: 'sect2_rival_duel',
@@ -1383,99 +1594,111 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
     ],
   },
 
-  // ==================== 暗线二：天机总坛与谢无咎复仇 ====================
+  // ==================== 暗线二：百宝内变与仁商血债（谢无咎全新卷三线） ====================
   act3_arc_chamber_1: {
     id: 'act3_arc_chamber_1',
     act: 'act3',
-    title: '天机暗港',
-    subtitle: '卷三 · 商行暗战（上）',
-    location: '青州城东 · 天机总坛运河货栈',
+    title: '百宝内变',
+    subtitle: '卷三 · 青州商潮（上）',
+    location: '青州府 · 百宝分号后院密室',
     paragraphs: [
-      '青州城东的运河码头被两丈高的黑砖围墙圈起，檐下挂着天机商行的鎏金铜牌。寻常货船靠岸都是卸货进城，唯独这里每逢子夜便有吃水极深的铁底矿船驶入暗闸，满船上品灵石矿沉入仓底后，次日竟空船驶出，连半块碎矿都未流向青州坊市。',
-      '高墙哨楼上隐隐晃动着金丹管事的巡查神识，正面硬闯绝无生机。',
+      '青州周边三座灵矿断脉后，城中丹药与辟谷粮价一日三涨，无数底层散修连最寻常的培元散都买不起。原本平抑市价的百宝斋青州分号却忽然大门紧闭——坐镇三十年的二掌柜周恪串通几位顽固元老发动逼宫，欲趁断脉灾荒囤药哄抬五倍市价，并把谢无咎当作投名状交给天机商行，以换取半条新矿开采份子！',
+      '更令百宝暗楼气氛骤降冰点的，是昨晚一名满身箭伤的告老押运老卒爬进后院吐出的一句遗言：当年谢无咎兄长在青州“沐光飞升”前夜，并非自愿入阵，而是被周恪亲手下药迷倒、卖进了城东暗港那口天机转运深井！',
       {
         when: (s) => s.companions.xie_wujiu.met && !isXieHostile(s),
-        text: (s) =>
-          s.flags.blood_pill_exposed
-            ? '运河对岸酒楼临窗雅座里，谢无咎早已备好两副伪造的验货腰牌。他指尖轻敲玄铁折扇，笑意尽敛：“青岚那场火只是挠痒，这里才是天机商行抽干青州的喉咙。我查了三年，当年送我哥哥上路的那批密药，正是从这座暗港地底运出来的。”'
-            : '运河对岸酒楼，两副假腰牌已摆在案上。谢无咎指尖敲着玄铁扇，笑意尽敛：“这暗港才是天机商行抽干青州的喉咙，当年送我哥哥上路的那批密药，正是从地底运出去的。”他声音极轻。“我查了三年。”',
+        text: '油灯下，向来笑谈盈亏的谢无咎第一次显得有些狼狈。袖口沾着老卒临终留下的血迹，他合起玄铁折扇，声音沙哑：“当年我总笑我哥太过仁善不懂算计，才信了外人。没想到卖掉他的，竟是看着我长大的百宝老掌柜。不日账堂公审，周恪已请来天机商行的金丹大管事压阵——我手头能调动的现石全被他拿账房旧印扣死了。{{name}}，这一回不是赚钱的买卖，是保命与清门户的死局。”',
       },
       {
         when: (s) => s.companions.xie_wujiu.met && isXieHostile(s),
-        text: '茶楼二层人影未动。运河对岸谢无咎摇扇冷瞥一眼连寒暄都省了，两枚伪造腰牌收入袖中，散漫丢来一句：“冤家路窄，暗港深浅各凭本事，你走你的独木桥，莫挡百宝斋的道。”',
+        text: '百宝分号外剑拔弩张。谢无咎立在廊下冷瞥你一眼，合拢玄铁扇：“冤家路窄。我百宝斋自家清理门户，不指望你搭把手；你若想趁火打劫周恪手里的黑矿契，各凭本事便是。”',
       },
       {
         when: (s) => !s.companions.xie_wujiu.met,
-        text: '你在对岸茶楼暗中观察两夜，忽见邻桌一名摇着玄铁折扇的玄衣青年也正盯着暗闸水纹。他察觉你的视线，含笑抬杯：“阁下也在看天机商行的无底洞？在下百宝斋谢无咎。这暗港水深得很，阁下若想下去分一杯羹，不如联手省些力气，当然，要独行我也绝不拦路。”',
+        text: '你在青州暗坊循着药荒风声摸到百宝分号后院，正撞见玄衣少东家谢无咎独对满屋残账。他见你气息沉稳、已是筑基真人，起身拱手苦笑：“阁下既撞破百宝内变，我也不藏掖了。不日分号账堂公审，叛徒周恪引了天机金丹管事来压我。阁下若愿助我稳住局势，九州灵脉契与暗网情分尽可相商。”',
       },
     ],
     choices: [
       {
         id: 'chamber1_team_xie',
-        label: '与谢无咎合谋，持百宝斋伪造货单混入总坛暗河转运窟',
-        subtext: '借百宝斋暗网摸清内部机关，还能顺手分润一笔矿船抽成。',
+        label: '连夜替谢无咎查核老掌柜私账，并在青州七处茶楼布下「连环死手密信」',
+        subtext: '提前把转运井账底与老卒供词寄存暗桩，公审之夜哪怕金丹大管事亲临也不敢轻易灭口！',
         visible: (s) => !isXieHostile(s),
-        insightTags: ['谢无咎深厚好感', '灵石80', '开启联手突袭'],
+        insightTags: ['布下【青州死手密信】', '谢无咎深厚信任', '心境与情报'],
         effect: {
-          spiritStones: 80,
-          mind: 6,
-          renown: 4,
+          mind: 8,
+          renown: 6,
           setFlags: {
             act3_chamber_step1: true,
             act3_chamber_mode: 'with_xie',
+            act3_chamber_deadman_switch: true,
+            act3_chamber_letter_switch: true,
+            xie_deadman_switch: true,
             tianji_chamber_hostile: true,
           },
           companionUpdates: {
             xie_wujiu: {
               meet: true,
               markSeen: true,
-              affectionDelta: 14,
-              chronicle:
-                '青州暗港对岸茶楼联手定计，你二人的棋子终于落向了天机商行总坛心脏。',
+              affectionDelta: 12,
+              chronicle: '百宝分号内变危急之夜，你陪他查抄叛徒私账并布下七处茶楼连环死手，替他顶住了灭顶危机。',
             },
           },
-          logSummary:
-            '与谢无咎合谋伪造验货凭据，摸清天机商行青州总坛地底密窟入口。',
+          logSummary: '助谢无咎彻查百宝内鬼私账，并于青州七处茶楼布下连环死手密信以备制衡金丹管事。',
         },
         outcome: [
-          '谢无咎的暗桩果然老辣。不过三日，你二人便顶着外郡验矿客卿的名头混进了暗港外仓，不仅顺手从慌乱的仓管手里敲出八十灵石「验矿茶钱」，更亲眼看见仓底铁闸下连通着一座深不见底的螺旋石阶。',
-          '退出暗港后，谢无咎眼神亮得骇人：“金丹管事每逢季末朔日要赴城主府拜会，两月后朔夜子时，咱们下去把这黑窟彻底掀个底朝天。”',
+          '整整一夜灯火未熄。你与谢无咎从周恪密室抄出十年私账，连同老卒血供与从暗港灰坑秘密起出的一只锦盒一并抄录七份，悄悄分寄青州七处散修茶楼与青云驿馆——只要公审子时前无人撤信，所有秘辛即刻公之于众！',
+          '天色擦白时，谢无咎长吁一口气，望你的眼神彻底少了客套：“有这七道死手挂在头顶，哪怕天机金丹管事来了，也得先掂量掂量杀我们灭口的代价。待公审之夜账堂见真章！”',
         ],
-        outcomeContinueLabel: '定下朔夜子时之约 · 返回客馆',
-        bridgeNote:
-          '你与谢无咎已摸清天机总坛暗港地底入口，只待两月后朔夜子时便潜入深窟。',
+        outcomeContinueLabel: '布妥死手密信 · 静候账堂公审',
+        bridgeNote: '你与谢无咎已在青州七处布下连环死手密信，百宝总账堂公审一触即发。',
         next: 'act3_hub',
       },
       {
         id: 'chamber1_solo_infiltrate',
-        label: '不愿受制于人，花七十灵石买通暗市水鬼摸清总坛水闸密道独闯',
+        label: '自掏七十灵石暗中贴补青州穷苦散修与百宝底层伙计，收拢商号人心',
+        subtext: '以仁商之道反制周恪囤药之举，赢得青州民心并同样织成一张众目睽睽的护身网。',
         requirement: { minSpiritStones: 70, lockReason: '需灵石 70' },
-        insightTags: ['耗灵石70', '独行潜入', '修为与心境'],
-        effect: {
+        insightTags: ['耗灵石70', '获【民心死手网】', '正道与声望大涨'],
+        effect: (s) => ({
           spiritStones: -70,
-          might: 8,
-          mind: 6,
+          mind: 8,
+          renown: 12,
+          righteous: 10,
+          worldly: 8,
           setFlags: {
             act3_chamber_step1: true,
-            act3_chamber_mode: 'solo',
+            act3_chamber_mode: isXieHostile(s) ? 'solo' : 'with_xie',
+            act3_chamber_deadman_switch: true,
+            act3_chamber_crowd_shield: true,
           },
-          logSummary:
-            '重金买通青州暗市水鬼，独身摸清天机商行总坛水下密道。',
-        },
+          companionUpdates: !isXieHostile(s)
+            ? {
+                xie_wujiu: {
+                  meet: true,
+                  markSeen: true,
+                  affectionDelta: 10,
+                  chronicle: '分号危局时你反掏私囊平抑穷散修药价、收拢百宝伙计人心，令这位素来唯利是图的少东家一时失语。',
+                },
+              }
+            : undefined,
+          logSummary: '于青州断脉药荒中出资七十灵石救济底层散修与百宝伙计，以民心众目反制内鬼逼宫。',
+        }),
         outcome: [
-          '七十灵石砸下去，皮图到手。你趁夜雾潜入刺骨暗河，寻到标注的排污破口一剑劈断锈蚀铁栓，悄然摸清了直通总坛地窟的暗道。水冷无声。',
-          '上岸拧干衣袖，你回望灯火森严的总坛高墙。独自办事虽险，可窟底藏着的宝贝与账本，到时也不必分给旁人。',
+          '七十枚灵石换成实实在在的低价清心散与米粮，经百宝底层伙计之手悄悄发到城南散修棚里。不到三日，满城都知道周恪借荒囤药、而你暗中施药救人，连分号护院都纷纷倒戈！一名感念恩情的暗港老伙计更冒死摸黑送来一只浸着冷灰的乌木锦盒，称那是当年从转运井底捞出的谢家旧物。',
+          (s) =>
+            isXieHostile(s)
+              ? '满城散修与百宝底层伙计已盯紧账堂风声，众目睽睽之下，待公审开堂无论谁想暗下杀手都须掂量三分。'
+              : '谢无咎站在门廊后看着排起长队的散修，第一次没拨算珠，只轻声自语：“原来世上真有些账，亏了灵石反倒赢了命。”众目睽睽之下，将启的公审账堂已成青州焦点。',
         ],
-        outcomeContinueLabel: '收好水路皮图 · 折返整备',
-        bridgeNote:
-          '你已买通水鬼摸清天机总坛水下密道，随时可以孤身潜入地底。',
+        outcomeContinueLabel: '稳住百宝人心 · 迎向账堂公审',
+        bridgeNote: '你以七十灵石稳住青州药价与百宝人心，不日账堂公审已占尽大义先机。',
         next: 'act3_hub',
       },
       {
         id: 'chamber1_scout_ledger',
-        label: '伏在河岸高楼静观数月，彻底摸准金丹管事换防空隙再动身',
-        subtext: '零花费稳妥侦察，多耗四月光阴换取万全把握。',
-        insightTags: ['零花费', '耗时四月', '心境大增'],
+        label: '不介入百宝内斗，独自伏在城东暗港蹲守四月摸清转运井底细',
+        subtext: '不耗灵石独行暗查，多耗四月光阴换取心境与井底物证，但不曾布下牵制金丹的死手。',
+        insightTags: ['不耗灵石', '耗时四月', '独行无死手'],
         effect: {
           timeMonths: 4,
           mind: 10,
@@ -1483,16 +1706,20 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
             act3_chamber_step1: true,
             act3_chamber_mode: 'solo',
           },
-          logSummary:
-            '连续四月暗中蹲守天机总坛暗港，摸透金丹护卫巡防规律。',
+          companionUpdates: {
+            xie_wujiu: {
+              meet: true,
+              markSeen: true,
+            },
+          },
+          logSummary: '连续四月暗中蹲守青州暗港转运井，独身摸清百宝叛徒与天机商行勾连内幕。',
         },
         outcome: [
-          '你在对岸客栈一住四个月，用炭笔将每一艘矿船靠岸的时辰、每一班守卫换岗的间隙都记得分毫不差。哪怕总坛金丹大管事的出行规律，也逃不过你的眼睛。',
-          '合上炭笔册子时，窗外已换了季候。接下来潜入地底密窟，你比谁都清楚该何时进、何时退。',
+          '你未向百宝斋借半点势力。趁着周恪与天机商行几度推延公审、暗中清账的这四个月，你独自伏在暗港对岸茶楼静守，亲眼摸清了周恪深夜向天机转运井输送灵矿的暗道，还顺手从井畔废灰坑里撬出半块沾满惨白灵灰的「谢」字青玉佩。',
+          '合上炭笔册子时，一拖再拖的账堂公审终于定下正期。你虽独揽物证，却也清楚自己并未在外头布下牵制金丹大管事的死手。',
         ],
-        outcomeContinueLabel: '收起侦察册 · 返回客馆',
-        bridgeNote:
-          '四月静守让你彻底摸清了天机总坛守卫破绽，地底密窟已向你敞开。',
+        outcomeContinueLabel: '收好残佩与暗查札记 · 赴账堂公审',
+        bridgeNote: '四月独行暗查让你拿到了井底关键残佩，却也无暗桩死手护身。',
         next: 'act3_hub',
       },
     ],
@@ -1501,107 +1728,190 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
   act3_arc_chamber_2: {
     id: 'act3_arc_chamber_2',
     act: 'act3',
-    title: '抽灵天梯',
-    subtitle: '卷三 · 商行暗战（终章）',
-    location: '天机总坛地底 · 百丈传送深井',
+    title: '仁商与血债',
+    subtitle: '卷三 · 青州商潮（终章）',
+    location: '青州府 · 百宝总账堂',
     checkpoint: true,
-    checkpointLabel: '卷三 · 天机总坛地底抉择',
+    checkpointLabel: '卷三 · 百宝总账堂公审',
     paragraphs: [
-      '潜入地下百丈，眼前豁亮得令人失语。整座山腹掏空成通天白玉井，井壁刻满逆汲阵纹，成车上品灵石坠底便化作滚滚银辉，直贯云端虚空裂隙。商行底牌在此。这便是【抽灵天梯】。',
-      (s) =>
-        s.companions.xie_wujiu.met
-          ? '井畔废料灰坑堆着厚厚一层惨白药渣，丹炉焦糊味呛得人反胃。你拨开灰烬，指尖触到半块焦裂青玉佩。内侧刻着一个「谢」字。玉面沾满固结灵灰。当年那位在金光中「羽化飞升」的天才修士根本没进过仙界，人在半空便被天梯炼作了药渣。'
-          : '井畔废料灰坑堆着厚厚一层惨白药渣，丹炉焦糊味呛得人反胃。你拨开灰烬，指尖触到半块焦裂青玉佩。内侧刻着一个「谢」字。玉面沾满固结灵灰，显是某位高阶修士人在半空便被天梯炼作了药渣。',
-      {
-        when: (s) => Boolean(s.flags.ev_blood_letter),
-        text: '侧案一角压着半枚碎裂火漆印，与你十六岁那年接下的染血密信出自同一枚暗章。那名濒死信使拼命送出的，正是这座深井的运矿名录。',
+      '亥时三刻，百宝总账堂灯火如昼。叛徒老掌柜周恪趾高气扬地端坐客席，身旁端坐着一名闭目品茶的紫袍老者——天机商行青州金丹大管事！凛冽金丹威压笼罩整座大堂，令堂下数十名筑基伙计连抬头都觉胸口发闷。',
+      '你当堂掀开一只乌木锦盒，将从青州暗港转运井废灰坑起出的半块焦裂青玉佩摆在灯下。内侧一个焦黑「谢」字触目惊心，玉面更固结着厚厚一层冰冷刺骨的惨白灵灰！',
+      (s) => {
+        const hasBloodDust = s.truthClues.includes('clue_blood_pill_dust');
+        const hasVeinSigil = s.truthClues.includes('clue_ancient_vein_sigil');
+        if (hasBloodDust || hasVeinSigil) {
+          const matchedSources: string[] = [];
+          if (hasBloodDust) matchedSources.push('青岚血丹丹核里的灰白微尘');
+          if (hasVeinSigil) matchedSources.push('青州地底逆阵剥落的落尘玉屑');
+          return `你的神识微微一震——那层固结在残佩上的惨白灵灰，与${matchedSources.join('、')}，气息竟一模一样！根本没有什么“羽化登仙”，当年谢家兄长连半步仙门都没踏进，人在转运井半空便化作了同源药渣！这一枚物证，彻底击穿了${s.truthClues.includes('clue_alliance_pact') ? '仙盟所谓“护界进贡”的谎言' : '三千年“白日登仙”的旧说'}。`;
+        }
+        return '细辨玉面那层冰冷惨白的灵灰，丹炉焦糊味呛得人反胃——那绝非寻常火焚之灰，而是修士元神与灵力被生生抽炼后的残渣！所谓飞升接引，人在半空便已被炼成药灰。';
       },
       {
         when: (s) => s.flags.act3_chamber_mode === 'with_xie',
-        text: '谢无咎跪在灰坑边拾起那半块焦玉。向来风轻云淡的眉眼骤然崩裂，指节攥得渗出血丝。良久，他站起身抹去眼角湿红，声音哑得像铁锈刮石：“什么飞升接引，全他娘的是屠宰场！{{name}}，井底火引子我埋好了。今晚连井带天梯一起炸个干净，还是拿总账逼他们吐出骨头，你定！”不远处敞开的铁柜里，隐约露出一卷灵矿地契与一枚【九纹凝丹丸】。',
+        text: '谢无咎死死盯着那半块沾满灵灰的焦玉，指节攥得渗出血丝。良久，他站直脊背，声音冷得像淬了冰的铁：“周恪，你替天机商行害死我哥，如今还要拿全青州散修的救命药钱去讨好他们。金丹大管事就坐在这儿，但今天这笔账，百宝斋自己来清！”堂外已被数百闻讯赶来的青州商贾与散修团团围住，喧声震天。',
       },
       {
         when: (s) => s.flags.act3_chamber_mode !== 'with_xie',
-        text: '井廊尽头已亮起警戒红灯，总坛金丹大管事正带人顺着石阶急步下压。你握紧那半块沾满灵灰的「谢」字残佩，手边就是引爆矿脉的赤焰符箱，侧室铁柜里则锁着青州三座灵矿的地契、成箱灵石与一枚丹纹流转的【九纹凝丹丸】。时间只够做一次抉择。',
+        text: '紫袍金丹大管事缓缓睁开眼，冷漠扫过你与桌上的焦裂残佩。门窗已被他的金丹灵域暗暗封锁，内堂铁匣里锁着周恪囤积的青州灵矿地契、成箱救命灵石与一枚【九纹凝丹丸】。如何在金丹眼皮底下破局，全在你一念之间。',
       },
     ],
     choices: [
       {
         id: 'chamber2_smash_ladder',
-        label: '引爆地底灵矿彻底炸毁抽灵天梯，抢走【九州灵脉契】与库藏灵石',
-        subtext: '与天机商行结为不死死敌，断掉上界在青州的一条吸血管道，也替百宝斋报此血仇。',
+        label: (s) =>
+          s.flags.act3_chamber_mode === 'with_xie' && !isXieHostile(s)
+            ? '当众揭穿老掌柜通敌血案，助谢无咎焚毁高利血契、开仓放药逼退金丹管事'
+            : '当众揭穿老掌柜通敌血案，焚毁高利血契并开仓放药逼退金丹管事',
+        subtext: (s) =>
+          s.flags.act3_chamber_mode === 'with_xie' && !isXieHostile(s)
+            ? '【商道蜕变】借满堂商贾与城外散修众目护身，放弃趁乱暴利，换九州商德、【九州灵脉契】与谢无咎真正脱胎换骨。'
+            : '【商道清源】借满堂商贾与城外散修众目护身，放弃趁乱暴利，换九州商德与【九州灵脉契】。',
         insightTags: (s) => [
-          '得真相【抽灵天梯】',
+          '得真相【转运井灵灰】',
           '得【九州灵脉契】',
           '命格【商行死敌】',
-          (s.flags.act3_chamber_mode === 'with_xie' || s.companions.xie_wujiu.met) &&
-          !isXieHostile(s)
-            ? '灵石 280 与谢无咎深厚羁绊'
-            : '得 280 灵石',
+          s.flags.act3_chamber_mode === 'with_xie' && !isXieHostile(s)
+            ? '谢无咎心性蜕变 · 情谊大进'
+            : '声望大涨 · 180灵石',
         ],
-        effect: (s): ChoiceEffect => ({
-          spiritStones: 280,
-          might: 12,
-          righteous: 14,
-          renown: 14,
-          addTags: ['tianji_nemesis'],
-          addRelics: ['spirit_vein_deed'],
-          addTruthClues: ['clue_tianji_portal'],
-          completeThreads: ['thread_act3_chamber'],
-          setFlags: {
-            tianji_chamber_hostile: true,
-            tianji_portal_destroyed: true,
-          },
-          companionUpdates:
-            (s.flags.act3_chamber_mode === 'with_xie' || s.companions.xie_wujiu.met) &&
-            !isXieHostile(s)
-              ? {
-                  xie_wujiu: {
-                    meet: true,
-                    markSeen: true,
-                    affectionDelta: 28,
-                    setStance: 'bonded',
-                    setStage: 4,
-                    chronicle:
-                      s.flags.act3_chamber_mode === 'with_xie'
-                        ? '天机总坛地窟中你陪他炸碎抽灵天梯，火光照亮半个青州夜空。他将兄长残佩收进心口，誓与你共掀天机商行。'
-                        : '你孤身炸毁天机总坛抽灵天梯并将兄长残佩亲手送抵百宝斋，他沉默良久，折扇一合立下同生共死之诺。',
-                  },
-                }
-              : undefined,
-          logSummary:
-            '炸毁天机商行青州总坛地底【抽灵天梯】，夺得【九州灵脉契】与二百八十灵石，成商行头号死敌。',
-        }),
+        effect: (s): ChoiceEffect => {
+          const withXie = s.flags.act3_chamber_mode === 'with_xie' && !isXieHostile(s);
+          return {
+            spiritStones: 180,
+            might: 10,
+            mind: 10,
+            righteous: 14,
+            renown: 18,
+            addTags: ['tianji_nemesis', 'merchant_fame'],
+            addRelics: ['spirit_vein_deed'],
+            addTruthClues: ['clue_tianji_portal'],
+            completeThreads: ['thread_act3_chamber'],
+            setFlags: {
+              tianji_chamber_hostile: true,
+              tianji_portal_destroyed: true,
+              xie_reformed_merchant: withXie,
+              chamber2_smash_with_xie: withXie,
+            },
+            companionUpdates: {
+              ...(withXie
+                ? {
+                    xie_wujiu: {
+                      meet: true,
+                      markSeen: true,
+                      affectionDelta: 18,
+                      setStance:
+                        s.companions.xie_wujiu.affection + 18 >= 75
+                          ? 'bonded'
+                          : 'confidant',
+                      setStage: 4,
+                      chronicle:
+                        '百宝总账堂公审之夜，你陪他清理叛徒、当众焚毁高利血契平抑青州药荒。他收起兄长残佩，不再只做算计盈亏的暗市少东，立誓以商道护住九州人心。',
+                    },
+                  }
+                : {}),
+              ...(s.companions.su_zhiwei.met && isSuZhiweiAlive(s)
+                ? {
+                    su_zhiwei: {
+                      affectionDelta: 6,
+                      chronicle: '听闻你在青州城开仓放药平抑药荒，她对着药炉浅浅一笑。',
+                    },
+                  }
+                : {}),
+            },
+            logSummary:
+              '于百宝总账堂揭穿内鬼与【转运井灵灰】铁证，开仓放药逼退天机金丹管事，获【九州灵脉契】。',
+          };
+        },
         outcome: [
-          '“炸了它！”你一剑劈开侧室铁柜卷走【九州灵脉契】与两袋上品灵石，同时反手将赤焰符砸进灵脉阵眼！地底深井轰然暴响，白玉天梯在冲天火柱中寸寸崩塌，滚滚灵气倒卷而出，竟然令干涸多年的青州东郊瞬间降下一场细密灵雨！',
+          '“启扉，请青州诸坊商贾、散修同听此账！”你挥剑斩断正门铁栓，高擎那半块覆满灵灰的残佩，与周恪勾结天机、囤药居奇的血契同举灯下。数百散修与各帮掌柜闻声蜂拥入庭，怒潮掀瓦。座上紫袍金丹管事眸光骤寒，然忌惮众目睽睽之下屠戮满城商帮激起九州哗变，终不敢妄动，唯冷哼拂袖，顺手击晕周恪以绝后患，破空遁去。',
           (s) =>
-            s.flags.act3_chamber_mode === 'with_xie' && !isXieHostile(s)
-              ? '逃出暗河闸口后，谢无咎立在夜风里回望那片冲天大火，将沾满灵灰的残佩贴身收好，转身对你深深一揖：“我谢无咎平生最讲买卖盈亏，唯独今晚这笔账，我欠你一条命。往后百宝斋九州暗网，任你差遣！”'
-              : s.companions.xie_wujiu.met && !isXieHostile(s)
-              ? '你借水闸暗流脱身回城，天明前径直登门百宝斋，将那半块沾满灵灰的「谢」字残佩放到案前。谢无咎凝视残佩良久，指尖发颤却一滴泪也未落，只郑重起身对你长揖：“天梯已毁，兄仇先收一笔。往后百宝斋九州暗网，任你差遣！”'
-              : s.companions.xie_wujiu.met && isXieHostile(s)
-              ? '你借水闸暗流脱身回城。天明前你未踏入百宝斋半步，只托街边挑夫把那半块焦裂的「谢」字残佩搁在柜台便转身离去。炸毁天梯原是为斩断上界抽灵之口，至于与谢无咎的旧怨，你并不打算拿它换一句虚情假意。'
-              : '你借水闸暗流脱身回城，将那半块刻着「谢」字的焦裂残佩与天梯阵图收妥。次日天明，天机商行青州总坛一夜化作焦土的消息震动九州，你也正式登上了上界耳目的必杀黑榜。',
-          '天机商行在青州苦心经营百年的抽灵支口就此断绝，满城散修在细密灵雨里纷纷抬头，却不知是谁一夜之间替这方天地挣回了一口气。',
+            s.flags.chamber2_smash_with_xie
+              ? '尘嚣渐定，谢无咎亲取一叠逼杀无数散修的灵矿高利血契投诸炭盆，传令开百宝药仓平价放药，以解青州之荒。火光映其清瘦侧颜，他将兄长残佩纳回怀中，双手奉上【九州灵脉契】，沉声道：“昔日谢某以为，商道唯在握筹敛利、步步占先。今夜方知，若连苍生性命亦不能护，纵聚万金，不过替高天蓄薪耳。自今日始，百宝斋改立新律；这半壁商号，愿与君共持之。”'
+              : '堂内风波既平，百宝斋残存伙计齐齐揖首，感念你保全商号清名，奉上抄没叛徒私产所得【九州灵脉契】与灵石一百八十枚。青州药价一夜平抑，而天机商行必杀黑榜之上，自此亦镌上了你的名姓。',
         ],
-        outcomeContinueLabel: '踏过暗河硝烟 · 返回青州',
-        bridgeNote:
-          '天机总坛地底的抽灵天梯已化作废墟，你手握【九州灵脉契】与巨额灵石，正式与天机商行结成死敌。',
+        outcomeContinueLabel: '踏过账堂余烬 · 返回青州',
+        bridgeNote: '百宝总账堂公审落幕，你借众目大义逼退金丹管事并重立青州商序，手握【九州灵脉契】。',
         next: 'act3_hub',
       },
       {
         id: 'chamber2_seize_ledger_deal',
-        label: '扣住总坛密账与残佩铁证，逼金丹大管事交出【九纹凝丹丸】与【九州灵脉契】',
-        subtext: '以极冷静的商道手腕把利益榨到极致，先借对方重宝成就自身金丹。',
-        insightTags: (s) => [
-          s.relics.includes('golden_core_elixir') ? '凝丹丸折现共510灵石' : '得【九纹凝丹丸】+160灵石',
-          '得【九州灵脉契】',
-          '得真相【抽灵天梯】',
-        ],
+        label: '扣住总坛密账与灵灰残佩，当面逼天机金丹大管事交出【九纹凝丹丸】与【九州灵脉契】',
+        subtext: (s) => evaluateCoercion(s, 'act3_tianji_goldcore').warningText,
+        insightTags: (s) => {
+          const ev = evaluateCoercion(s, 'act3_tianji_goldcore');
+          return ev.canSucceed
+            ? [
+                `底牌已成：${ev.leverageSummary}`,
+                s.relics.includes('golden_core_elixir') ? '凝丹丸易石共四百八十' : '得【九纹凝丹丸】+160石',
+                '得【九州灵脉契】与【转运井灵灰】',
+              ]
+            : [
+                '【极险】境界悬殊！无死手/越阶杀招',
+                ev.canSurviveFail ? '恐遭金丹管事重创折寿逃遁' : '恐遭金丹当场镇杀灭口（陨落）',
+              ];
+        },
         effect: (s): ChoiceEffect => {
+          const ev = evaluateCoercion(s, 'act3_tianji_goldcore');
+          if (!ev.canSucceed) {
+            if (!ev.canSurviveFail) {
+              return {
+                timeMonths: 0,
+                setFlags: {
+                  killed_by_silencing: true,
+                  silencing_killer: '天机商行青州金丹大管事',
+                  silencing_context: 'act3_chamber',
+                  chamber2_coercion_result: 'killed',
+                },
+                logSummary: '筑基之身无死手暗网亦无越阶战力，当堂拿账本威胁金丹大管事，惨遭一掌镇杀灭口。',
+              };
+            }
+            return {
+              timeMonths: 8,
+              spiritStones: -Math.min(s.spiritStones, 120),
+              might: -6,
+              lifespanBonus: -8,
+              addTruthClues: ['clue_tianji_portal'],
+              completeThreads: ['thread_act3_chamber'],
+              setFlags: {
+                tianji_chamber_hostile: true,
+                escaped_silencing_act3_chamber: true,
+                chamber2_coercion_result: 'escaped',
+              },
+              companionUpdates: s.companions.xie_wujiu.met
+                ? {
+                    xie_wujiu: {
+                      markSeen: true,
+                      affectionDelta: -8,
+                      chronicle: '总账堂上你未备死手却硬胁金丹大管事，遭对方暴起灭口、重伤逃遁，令百宝分号损失惨重。',
+                    },
+                  }
+                : undefined,
+              logSummary: '无死手底牌却当面要挟天机金丹大管事，遭金丹掌印重创折寿八载，狼狈遁出青州。',
+            };
+          }
+
           const hadElixir = s.relics.includes('golden_core_elixir');
+          const hasBaibaoSwitchPre = Boolean(
+            s.flags.xie_deadman_switch ||
+              (s.relics.includes('baibao_token') &&
+                !isXieHostile(s) &&
+                s.companions.xie_wujiu.affection >= 25) ||
+              (s.daoPartnerId === 'xie_wujiu' && !isXieHostile(s))
+          );
+          const isCrowdOnlyPre =
+            Boolean(s.flags.act3_chamber_crowd_shield) &&
+            !s.flags.act3_chamber_letter_switch &&
+            !hasBaibaoSwitchPre;
+          const switchWord = isCrowdOnlyPre ? '满城民心众目' : '死手暗桩';
+          const leveragePhrase =
+            ev.switchOk && ev.powerOk
+              ? `${switchWord}与越阶底气`
+              : ev.switchOk
+              ? switchWord
+              : '越阶锋芒';
           return {
-            spiritStones: hadElixir ? 510 : 160,
+            spiritStones: hadElixir ? 480 : 160,
             mind: 10,
             renown: 12,
             worldly: 12,
@@ -1614,56 +1924,155 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
             setFlags: {
               act3_extorted_chamber: true,
               chamber2_elixir_converted: hadElixir,
+              chamber2_coercion_result: 'success',
+              chamber2_used_power: ev.powerOk,
+              chamber2_used_switch: ev.switchOk,
             },
-            companionUpdates:
-              s.flags.act3_chamber_mode === 'with_xie'
+            companionUpdates: {
+              ...(s.flags.act3_chamber_mode === 'with_xie' && !isXieHostile(s)
                 ? {
                     xie_wujiu: {
                       meet: true,
                       markSeen: true,
-                      affectionDelta: 12,
+                      affectionDelta: 8,
                       setStage: 4,
-                      chronicle:
-                        '你压住他的冲动，反用抽灵天梯密账从金丹管事嘴里撬出凝丹丸与灵脉契，留待修成金丹后再连根拔除商行。',
+                      chronicle: `总账堂上你以${leveragePhrase}逼得金丹管事低头吐出凝丹丸与灵脉契，虽未当场报仇，却让他见识了真正的筹码博弈。`,
                     },
                   }
-                : undefined,
+                : !s.companions.xie_wujiu.met
+                ? { xie_wujiu: { meet: true, markSeen: true } }
+                : {}),
+              ...(s.companions.shen_qingshuang.met
+                ? { shen_qingshuang: { affectionDelta: -6 } }
+                : {}),
+            },
             logSummary: hadElixir
-              ? '握住【抽灵天梯】铁证逼迫天机总坛低头，取【九州灵脉契】并将多余凝丹丸折现共五百一十灵石。'
-              : '握住【抽灵天梯】铁证逼迫天机总坛低头，豪取【九纹凝丹丸】【九州灵脉契】与百六灵石。',
+              ? `凭${leveragePhrase}迫使天机金丹管事低头，取【九州灵脉契】并将多余凝丹丸暗兑易得共四百八十灵石。`
+              : `凭${leveragePhrase}迫使天机金丹管事低头，豪取【九纹凝丹丸】【九州灵脉契】与百六灵石。`,
           };
         },
         outcome: [
-          '金丹大管事带人冲入井底的一瞬，你神色不动，反手高高举起蘸满灵灰的残佩与总坛密账原本：“这座抽灵天梯若今晚传遍青州茶楼，猜猜上界使者先灭的是我，还是你这守不住密窟的管事？”',
           (s) => {
+            if (s.flags.chamber2_coercion_result === 'killed') {
+              return '你举起沾灰残佩与私账副本，冷声要挟金丹大管事交出凝丹丸封口。紫袍金丹缓缓放下茶盏，像看一个笑话般笑了：“筑基小儿，外头没留死手、手里没越阶的剑，凭两页纸就想拿捏金丹？今日把你连同账本一道烧成灰，青州谁知晓井底事？”';
+            }
+            if (s.flags.chamber2_coercion_result === 'escaped') {
+              return '你高举残佩与账本欲逼对方低头，紫袍金丹却丝毫未见慌色，反而袖袍一震冷笑：“区区筑基，既无外网死手牵制，也无抗衡老夫之能，拿把柄威胁金丹就是找死！”浩瀚金丹威压轰然砸碎地板，一只赤紫灵掌瞬间拍穿你的护体灵光！';
+            }
+            const hasBaibaoSwitch = Boolean(
+              s.flags.xie_deadman_switch ||
+                (s.relics.includes('baibao_token') &&
+                  !isXieHostile(s) &&
+                  s.companions.xie_wujiu.affection >= 25) ||
+                (s.daoPartnerId === 'xie_wujiu' && !isXieHostile(s))
+            );
+            const isCrowdOnly =
+              Boolean(s.flags.act3_chamber_crowd_shield) &&
+              !s.flags.act3_chamber_letter_switch &&
+              !hasBaibaoSwitch;
+            if (isCrowdOnly) {
+              if (s.flags.chamber2_used_switch && s.flags.chamber2_used_power) {
+                return '金丹大管事杀意骤起，你却不退反进！腰间剑气轰然激荡，竟在对方金丹灵域里生生撕开一道缺口，同时扬声指向门外围堵的数百散修与商贾：“满城受过我施药恩情的青州散修与百宝伙计就在门外候着，你大可试试能不能在我一剑劈开堂门前悄无声息灭了我的口！”';
+              }
+              if (s.flags.chamber2_used_switch) {
+                return '金丹大管事周身杀气暴涨，眼看就要挥袖灭口。你神色不动，反手亮出传声玉符指向门外人声鼎沸的长街：“论境界我接不住你一掌，可门外数百受过我施药恩情的青州散修与百宝伙计正盯着账堂动静。我若横死堂内，转运井灵灰与高利黑账片刻便会传遍全城，你上头那位使者头一个便饶不了你！”';
+              }
+            }
+            const switchLabel = s.flags.act3_chamber_letter_switch
+              ? '青州七处茶楼与青云驿馆的死手回执'
+              : hasBaibaoSwitch
+              ? '百宝七十二城暗桩的连环死手回执'
+              : s.flags.act2_deadman_switch
+              ? '青岚暗市多处茶楼的散抄死手回执'
+              : '预先分寄九州多处茶楼的死手回执';
+            if (s.flags.chamber2_used_switch && s.flags.chamber2_used_power) {
+              return `金丹大管事杀意骤起，你却不退反进！腰间剑气轰然激荡，竟在对方金丹灵域里生生撕开一道缺口，同时扬手弹出${switchLabel}：“子时前我若走不出这道门，转运井灵灰与上供黑账明天就传遍九州茶楼——你大可试试能不能在我催动传讯玉符前灭了我的口！”`;
+            }
+            if (s.flags.chamber2_used_switch) {
+              return `金丹大管事周身杀气暴涨，眼看就要挥袖灭口。你神色不动，将${switchLabel}一一摊上桌面：“论境界我接不住你一掌，可我早在进门前便把灵灰样本与账底分寄多处暗桩，过子时未撤便自动传遍九州。杀了我，你上头那位使者头一个便饶不了你！”`;
+            }
+            return '金丹大管事冷笑出手欲将你当场格杀，却在半空中骤然变色！你爆发出的越阶底蕴与太古锋芒竟硬生生接下他七成威压、反震碎其袖口玉佩！眼见短时间内拿不下你、反要闹得满城皆知，大管事脸色铁青地收掌回撤。';
+          },
+          (s) => {
+            if (s.flags.chamber2_coercion_result === 'killed') {
+              return '金丹掌印落下，你的筑基道基瞬间崩得粉碎。在视线彻底沉入黑暗前，你看见那枚染灰残佩被紫袍老者随手碾作齑粉，账堂灯火未曾晃动半分。';
+            }
+            if (s.flags.chamber2_coercion_result === 'escaped') {
+              return '千钧一发之际，你燃尽保命底牌硬接了金丹半记杀招，吐血撞塌偏墙逃入暗巷！虽九死一生保住性命与残佩秘密，却折寿八载、散财疗伤，凝丹丸与灵脉契半件也未能染指。你扶着冷墙喘定，胸口掌印犹自灼痛。';
+            }
             const extra = s.flags.chamber2_elixir_converted
-              ? '（你怀中早备了一枚凝丹丸，脱身后顺手将多出这枚交暗坊折现三百五十灵石。）'
+              ? '怀中既早备有一枚凝丹丸，次日脱身后你便将多出这枚转交暗市，另易得三百二十灵石。'
               : '';
-            return s.flags.act3_chamber_mode === 'with_xie'
-              ? `金丹大管事眼神阴毒得几乎滴水，权衡半晌终究投鼠忌器，咬牙命人奉上【九纹凝丹丸】【九州灵脉契】与一百六十块灵石换你二人暂退。${extra}退出暗港后，谢无咎久久摩挲兄长残佩，低声冷笑：“你比我更狠也更清醒。拿他们的丹结我们的丹，等结成金丹之后，再来把这口井填平！”`
-              : `金丹大管事眼神阴毒得几乎滴水，权衡半晌终究投鼠忌器，只得咬牙命人奉上【九纹凝丹丸】【九州灵脉契】与一百六十块灵石换你封口退走。${extra}踏出暗港夜雾，你掂量着手中筹码，只待修成金丹，再来清算这口抽灵深井。`;
+            const hasBaibaoPost = Boolean(
+              s.flags.xie_deadman_switch ||
+                (s.relics.includes('baibao_token') &&
+                  !isXieHostile(s) &&
+                  s.companions.xie_wujiu.affection >= 25) ||
+                (s.daoPartnerId === 'xie_wujiu' && !isXieHostile(s))
+            );
+            const crowdOnlyPost =
+              Boolean(s.flags.act3_chamber_crowd_shield) &&
+              !s.flags.act3_chamber_letter_switch &&
+              !hasBaibaoPost;
+            const switchWord = crowdOnlyPost ? '民心众目' : '暗桩先手';
+            const basisDesc =
+              s.flags.chamber2_used_switch && s.flags.chamber2_used_power
+                ? `${switchWord}与越阶底蕴`
+                : s.flags.chamber2_used_switch
+                ? switchWord
+                : '越阶底蕴';
+            return `金丹大管事目中阴鸷如淬毒锋刃，死死权衡了足足半炷香，终究投鼠忌器，咬牙挥手命人奉上【九纹凝丹丸】【九州灵脉契】与一百六十灵石换你暂封其口。待你带着筹码稳步踏出账堂，才真正体会到${basisDesc}的份量。${extra}`;
           },
         ],
-        outcomeContinueLabel: '揣紧凝丹重宝 · 悄然撤离暗港',
-        bridgeNote:
-          '你凭【抽灵天梯】铁证迫使天机总坛吐出凝丹丸与灵脉契，结丹底气顿时雄厚无比。',
-        next: 'act3_hub',
+        outcomeContinueLabel: (s) =>
+          s.flags.chamber2_coercion_result === 'killed'
+            ? '怀璧灭口 · 展卷终局'
+            : s.flags.chamber2_coercion_result === 'escaped'
+            ? '折寿逃生 · 痛定思痛'
+            : '揣紧凝丹重宝 · 从容离堂',
+        bridgeNote: (s) => {
+          if (s.flags.chamber2_coercion_result === 'escaped') {
+            return '无底牌硬胁金丹大管事反遭灭口重创，折寿八载养伤方才捡回一条命。';
+          }
+          const hasBaibaoPost = Boolean(
+            s.flags.xie_deadman_switch ||
+              (s.relics.includes('baibao_token') &&
+                !isXieHostile(s) &&
+                s.companions.xie_wujiu.affection >= 25) ||
+              (s.daoPartnerId === 'xie_wujiu' && !isXieHostile(s))
+          );
+          const crowdOnlyPost =
+            Boolean(s.flags.act3_chamber_crowd_shield) &&
+            !s.flags.act3_chamber_letter_switch &&
+            !hasBaibaoPost;
+          const switchWord = crowdOnlyPost ? '满城民心众目' : '死手暗网';
+          const basis =
+            s.flags.chamber2_used_switch && s.flags.chamber2_used_power
+              ? `${switchWord}与越阶底气`
+              : s.flags.chamber2_used_switch
+              ? switchWord
+              : '越阶锋芒';
+          return `你凭${basis}迫使天机金丹管事低头吐出凝丹丸与灵脉契，震动青州暗坊。`;
+        },
+        next: (s) =>
+          s.flags.chamber2_coercion_result === 'killed' ? 'ending_silenced' : 'act3_hub',
       },
       {
         id: 'chamber2_ruthless_cut',
-        label: '趁警铃大作局势混乱，独吞库房【九纹凝丹丸】与三百五十灵石掠走',
-        subtext: '冷酷务实的独行手腕，换来最丰厚的个人资财，但若与谢无咎同行必致反目。',
+        label: '趁账堂大乱直接接管周恪的黑矿契与囤积救命药，收割青州药荒暴利',
+        subtext: '冷酷务实的枭雄手腕，换来巨额横财与凝丹丸，但必与谢无咎彻底反目，且令苏知微痛心寒心。',
         insightTags: (s) => [
-          s.relics.includes('golden_core_elixir') ? '凝丹丸折现共700灵石' : '得【九纹凝丹丸】+350灵石',
-          '得真相【抽灵天梯】',
-          '魔煞倾向',
+          s.relics.includes('golden_core_elixir') ? '凝丹丸易石共六百八十' : '得【九纹凝丹丸】+360灵石',
+          '得真相【转运井灵灰】',
+          '谢无咎反目 · 苏知微寒心',
         ],
         effect: (s): ChoiceEffect => {
           const hadElixir = s.relics.includes('golden_core_elixir');
+          const metXieBefore = s.companions.xie_wujiu.met;
           return {
-            spiritStones: hadElixir ? 700 : 350,
+            spiritStones: hadElixir ? 680 : 360,
             might: 8,
-            righteous: -22,
+            righteous: -24,
             worldly: 10,
             addRelics: hadElixir ? undefined : ['golden_core_elixir'],
             addTruthClues: ['clue_tianji_portal'],
@@ -1671,47 +2080,44 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
             setFlags: {
               act3_solo_looted_chamber: true,
               chamber2_elixir_converted: hadElixir,
+              chamber2_ruthless_met_xie_before: metXieBefore,
             },
-            companionUpdates:
-              s.flags.act3_chamber_mode === 'with_xie'
+            companionUpdates: {
+              xie_wujiu: {
+                meet: true,
+                markSeen: true,
+                affectionDelta: -36,
+                setStance: 'rival',
+                setStage: 4,
+                chronicle:
+                  '百宝内变大乱之际你竟接管叛徒周恪的囤药黑契、踩着青州散修血汗发横财，玄铁折扇自此彻底对你合拢。',
+              },
+              ...(s.companions.su_zhiwei.met && isSuZhiweiAlive(s)
                 ? {
-                    xie_wujiu: {
-                      markSeen: true,
-                      affectionDelta: -36,
-                      setStance: 'rival',
-                      setStage: 4,
-                      chronicle:
-                        '总坛地窟大乱之际你撇下他独吞凝丹重宝与库银掠走，玄铁折扇自此对你合拢。',
+                    su_zhiwei: {
+                      affectionDelta: -15,
+                      chronicle: '听闻你在青州断脉药荒中接手高价囤药狠捞横财，她握紧药杵久久不语，眼神彻底黯淡下来。',
                     },
                   }
-                : s.companions.xie_wujiu.met && !isXieHostile(s)
-                ? {
-                    xie_wujiu: {
-                      markSeen: true,
-                      affectionDelta: -12,
-                      chronicle:
-                        '听闻你在天机总坛地窟独吞库银与丹药、冷眼弃下兄长残佩，他合扇淡笑，此后便少了三分热络。',
-                    },
-                  }
-                : undefined,
+                : {}),
+            },
             logSummary: hadElixir
-              ? '趁天机总坛地窟混乱之际独吞库银并将多余凝丹丸折现，共掠七百灵石脱身。'
-              : '趁天机总坛地窟混乱之际独吞【九纹凝丹丸】与三百五十灵石脱身。',
+              ? '趁百宝内变吞下叛徒黑矿契与囤药暴利并将多余凝丹丸暗兑易石，共掠六百八十灵石。'
+              : '趁百宝内变吞下叛徒黑矿契与囤药暴利，掠得【九纹凝丹丸】与三百六十灵石。',
           };
         },
         outcome: [
           (s) =>
             s.flags.chamber2_elixir_converted
-              ? '石阶上喊杀声骤起，你反手震开铁柜卷走三百五十块灵石与【九纹凝丹丸】钻入暗流，回城后顺手把多余这枚丹药在黑市折现三百五十灵石，一夜暴富。'
-              : '石阶上喊杀声骤起，你连半瞬犹豫也无，反手震开铁柜禁制，将那枚温润生辉的【九纹凝丹丸】连同整箱三百五十块灵石收入储物囊，顺手抄走一页抽灵天梯阵图便钻入水闸暗流！',
+              ? '账堂混战骤起，你连半瞬犹豫也无，反手击毙周恪夺走其囤药仓钥与库银，顺手转卖多余凝丹丸共掠六百八十灵石，任由青州高价药市沸反盈天。'
+              : '账堂混战骤起，你连半瞬犹豫也无，反手劈开周恪内库夺走【九纹凝丹丸】与三百六十灵石囤药暴利，顺手抄走一页转运井账底便借乱掠出青州府！',
           (s) =>
-            s.flags.act3_chamber_mode === 'with_xie'
-              ? '回头瞥过井畔，谢无咎还捏着那半块焦裂的兄长玉佩立在灰坑边，听见铁柜崩响猛然抬头。四目相接的刹那，他眼底最后一丝暖意熄灭，折扇啪地合拢，冷冷吐出两字：“好账。”随即翻身避入暗廊迎向追兵。'
-              : '身后传来金丹护卫的怒喝与金属交击声。钻出运河夜雾时你浑身湿透，袖中丹匣却沉甸甸的。这世道人人都是筹码，先把自己推上金丹高位，才配谈其他。',
+            s.flags.chamber2_ruthless_met_xie_before
+              ? '回望狼藉大堂，谢无咎捏着兄长焦裂残佩立在碎裂牌匾下，听见你掠走救命药仓银箱的动静猛然抬头。四目相接的刹那，他眼底最后一丝暖意熄灭，合拢玄铁折扇，扇骨扣得指节泛白：“你比周恪还狠。这笔人命账，我记下了。”'
+              : '袖中丹匣与灵石沉甸甸的。这乱世人人都在吃人，先把自己推上金丹高位，才配谈什么是非慈悲。',
         ],
-        outcomeContinueLabel: '满载掠财遁走 · 返回青州',
-        bridgeNote:
-          '你自天机总坛地窟独吞【九纹凝丹丸】与三百五十灵石，行事之狠辣令暗市风声骤紧。',
+        outcomeContinueLabel: '满载横财遁走 · 返回青州',
+        bridgeNote: '你趁百宝内变发了一笔冷血药荒财，令谢无咎彻底反目，青州民间亦骂声四起。',
         next: 'act3_hub',
       },
     ],
@@ -1822,7 +2228,10 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
               ? '这一年里你收起所有筑基真人的架子，晨起帮她替药童讲药性，傍晚坐于杏树下听她讲起这些年走遍青州乡野的见闻。她的嗓音沉静温暖，让你几乎忘了外头九州的血雨腥风。'
               : '这一年里你哪儿也没去，日日守在炭炉旁替她煎药、读她写下的医案。她的精神一天比一天轻浅，却总强撑着笑意把最后几卷批注讲给你听，生怕漏掉半个紧要的字眼。',
         ],
-        outcomeContinueLabel: '待医卷终稿落定 · 听她最后嘱托',
+        outcomeContinueLabel: (s) =>
+          s.flags.su_zhiwei_saved_longlife
+            ? '待医卷终稿落定 · 细读无灵医典'
+            : '待医卷终稿落定 · 听她最后嘱托',
         next: 'act3_arc_hearth_2',
       },
       {
@@ -1898,7 +2307,14 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
       {
         when: (s) =>
           isSuAliveInAct3Hearth(s) && !s.flags.su_zhiwei_saved_longlife,
-        text: '那年青州入夜的晚风吹得很静。苏知微躺在暖被里，气息微弱得几乎听不见，却仍固执地把一枚温热的【无灵归尘印】塞进你手心。“我这辈子没见过仙界什么样，”她极轻地笑了一声，眼底映着跳跃的炉火，“可我把青州凡人的命理都写下来了。天上的眼睛看不见无灵者，你拿着这枚印，替我看看没有天门压顶的世道吧……别哭，{{name}}，能再见你一面，我已经够本了。”',
+        text: [
+          '那一夜，青州的风很静。炉火快熄了，只剩几点暗红，映在她枯瘦的指节上。灯花偶尔轻轻一爆，屋里便更静一分。',
+          '苏知微已连抬手的力气都快没了。可她还是把那枚【无灵归尘印】塞进了你掌心。玉印很暖。暖得让你心里发疼。',
+          '“仙界是什么样子，我没见过。”她的声音很轻，轻得像怕惊灭了案头那盏灯，“可青州凡人的命，我记了二十年。天上的眼睛很大，却看不见没有灵根的人。”',
+          '她停了停，喘过一口极浅的气，忽然看着你笑了一下。那笑容很淡，却像二十年前一样干净。“{{name}}，拿着这枚印。替我去看一眼。看一眼头顶没有天门压着的世道，究竟是什么样子。”',
+          '你的喉咙像被炭灰堵住了，一个字也说不出。她好像看出来了。那只瘦得只剩骨节的手，轻轻拍了拍你手背。“别难过。”她说，“临走前，灯还亮着，你还在我眼前坐着。”',
+          '她的声音低下去，几乎融进夜风里。“人活一世，还能求什么？”',
+        ],
       },
       {
         when: (s) => !isSuAliveInAct3Hearth(s),
@@ -1908,7 +2324,10 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
     choices: [
       {
         id: 'hearth2_accept_healthy',
-        label: '郑重收下【无灵归尘印】与医典，约她待斩断天门之日再回杏林赏花',
+        label: (s) =>
+          s.truthClues.length >= 3 || s.truthClues.includes('clue_changming_night')
+            ? '郑重收下【无灵归尘印】与医典，约她待斩断天门之日再回杏林赏花'
+            : '郑重收下【无灵归尘印】与医典，约她待厘清九霄迷局之日再回杏林赏花',
         visible: (s) =>
           isSuAliveInAct3Hearth(s) && Boolean(s.flags.su_zhiwei_saved_longlife),
         insightTags: [
@@ -1972,7 +2391,8 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
           companionUpdates: {
             su_zhiwei: {
               markSeen: true,
-              affectionDelta: 16,
+              markDeceased: true,
+              silentNotice: true,
               setStage: 4,
               chronicle:
                 '青州静夜安然闭目，将毕生无灵医典与【无灵归尘印】托付于你，长眠杏林树下。',
@@ -2015,7 +2435,10 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
             '二十载重逢杏林后决意解剑散功，舍弃长生仙途陪伴苏知微终老青州。',
         },
         outcome: [
-          '你望向窗外摇曳的杏影与山风，忽然解下佩剑轻轻靠在门扉旁。什么金丹大道，什么三千年天门骗局，都抵不过眼前这一炉药火。',
+          (s) =>
+            s.truthClues.length >= 3 || s.truthClues.includes('clue_changming_night')
+              ? '你望向窗外摇曳的杏影与山风，忽然解下佩剑轻轻靠在门扉旁。什么金丹大道，什么三千年天门骗局，都抵不过眼前这一炉药火。'
+              : '你望向窗外摇曳的杏影与山风，忽然解下佩剑轻轻靠在门扉旁。什么金丹大道，什么九霄仙途疑云，都抵不过眼前这一炉药火。',
           '你运功将一身筑基灵液缓缓散入大地，任由容颜自此随凡人一同生出风霜。握住她的手时，她先是一怔，随后泪光盈盈地靠进你怀里。从此长生路上少了一名真人，青州杏林多了一对白首之人。',
         ],
         outcomeContinueLabel: '展卷终局 · 【青州烟火】',
@@ -2067,7 +2490,10 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
     subtitle: '卷三 · 长明遗烬（上）',
     location: '青州西北 · 长明古战场外泽',
     paragraphs: [
-      '青州西北三百里的黑水荒泽，正是三千年前长明元年九位剑尊陨落的古战场。焦黑泥沼里斜插着数不清的熔断巨剑，天空终年压着一层铅灰瘴雾，连筑基修士的神识探出百丈都会如泥牛入海。',
+      (s) =>
+        s.truthClues.includes('clue_changming_night')
+          ? '青州西北三百里的黑水荒泽，正是三千年前长明元年九位剑尊陨落的古战场。焦黑泥沼里斜插着数不清的熔断巨剑，天空终年压着一层铅灰瘴雾，连筑基修士的神识探出百丈都会如泥牛入海。'
+          : '青州西北三百里的黑水荒泽，传闻是三千年前长明旧纪一场惊天古战遗下的废墟。焦黑泥沼里斜插着数不清的熔断巨剑，天空终年压着一层铅灰瘴雾，连筑基修士的神识探出百丈都会如泥牛入海。',
       '瘴雾退了。沼泽中央露出一座死柏孤岛，岛心焦黑枯柏裂缝间隐约透出墨玉似的【千年养魂木】，南岸三名太乙丹谷与外宗筑基修士早已抢先扎营，正催动阵旗试探沼中残存的古剑阵。',
       '绕行北岸残碑时，你忽然在一块半沉石碑背面发现一道极新的剑痕，旁边卡着一枚沾泥的青铜残牌，正面刻着「斩天」二字古篆。近半年里，竟有自称「斩天会」的神秘人先来此地勘察过古阵走位。',
       {
@@ -2087,7 +2513,7 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
       {
         id: 'soul1_follow_cangming',
         label: '依苍溟指点的三千年前残阵生门记熟沼路，并拓下斩天会暗记',
-        visible: (s) => s.companions.cang_ming.met,
+        visible: (s) => s.companions.cang_ming.met && !isCangMingHostile(s),
         insightTags: ['苍溟好感', '得斩天会线索', '决战先机'],
         effect: {
           might: 8,
@@ -2147,7 +2573,7 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
         },
         outcome: [
           '“你指哪步我便踩哪步，真把我当牵线傀儡？”你指腹并拢，筑基灵压化作寒针顺着断玉裂纹刺入，冷冷锁住那缕青衣残魂，逼他将七处杀阵死门与碑旁残记逐一印证。',
-          '苍溟闷哼一声，笑声冷得像荒泽黑水：“翅膀硬了，开始防着老祖宗了？好，死门我全报给你。两月后满月登岛，你自己掂量。”断玉青光骤暗，再不吐半字。',
+          '苍溟闷哼一声，笑声冷得像荒泽黑水：“羽翼已丰，开始防着老祖宗了？好，死门我全报给你。两月后满月登岛，你自己掂量。”断玉青光骤暗，再不吐半字。',
         ],
         outcomeContinueLabel: '冷收断玉与铜牌 · 返回青州',
         bridgeNote:
@@ -2244,7 +2670,7 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
         label: '借苍溟指点与残阵走位引动古战场剑意震退群修，亲手斩取【千年养魂木】',
         visible: (s) => !s.companions.cang_ming.met || !isCangMingHostile(s),
         insightTags: (s) => [
-          s.relics.includes('soul_nourishing_wood') ? '多得养魂木折现320灵石' : '得【千年养魂木】',
+          s.relics.includes('soul_nourishing_wood') ? '多得养魂木易石三百二十' : '得【千年养魂木】',
           '苍溟深厚羁绊',
           '修为心境双增',
         ],
@@ -2280,7 +2706,7 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
               },
             },
             logSummary: hadWood
-              ? '月圆之夜登长明古战场震退大宗修士，将多斩下的养魂木折现三百二十灵石。'
+              ? '月圆之夜登长明古战场震退大宗修士，将多斩下的养魂木暗兑三百二十灵石。'
               : '月圆之夜登长明古战场孤岛，借古剑煞势震退大宗修士，成功夺得【千年养魂木】。',
           };
         },
@@ -2288,13 +2714,13 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
           '你足尖连点坎位残碑，三千年前未散的古剑余意仿佛认出了苍溟的气息，轰然化作一道青虹屏障将那三名大宗修士逼退十丈！趁此良机，你凌空一剑斜劈焦柏裂缝，稳稳抄住那截温润如墨玉的【千年养魂木】！',
           (s) => {
             if (!s.flags.soul2_met_cangming_before) {
-              const woodPart = s.flags.soul2_wood_converted
-                ? '回城后你将多出这截新木交奇珍楼暗兑三百二十灵石，只留妥先前备好那截。'
-                : '你顺手将树根泥土里震出的那枚【焦黑断玉】也一并拾进袖中。';
-              return `丹谷执事惊疑退沼，孤岛重归寂静。${woodPart}玉中那道太古残魂沉默两息，声音难得正色几分：“小辈，算你有胆色。留好这截养魂木别白白糟蹋，结丹时可借它温息护魂，待你金丹大成、叩问元婴前夕，更足以替本座重塑真躯。”`;
+              const afterReturn = s.flags.soul2_wood_converted
+                ? '待次日回到青州，你将多出这截新木交予奇珍楼暗兑三百二十灵石，只留妥先前备好那截。'
+                : '';
+              return `丹谷执事惊疑退沼，孤岛重归寂静。你顺手将树根泥土里震出的那枚【焦黑断玉】也一并拾进袖中。玉中那道太古残魂沉默两息，声音难得正色几分：“小辈，算你有胆色。留好这截养魂木别白白糟蹋，结丹时可借它温息护魂，待你金丹大成、叩问元婴前夕，更足以替本座重塑真躯。”${afterReturn}`;
             }
             return s.flags.soul2_wood_converted
-              ? '丹谷执事惊疑退沼。你怀中早收妥了一截养魂木，回城后将岛上新斩这截交由奇珍楼暗兑三百二十灵石。苍溟嗤笑：“既备了双份，正好拿多出来的换酒喝，留好原来那截替本座塑躯便是。”'
+              ? '丹谷执事惊疑退沼，孤岛重归寂静。苍溟见你怀中本就收妥一截，不由嗤笑：“既备了双份，多出来那截拿去换石买酒便是，只管留好原来那截替本座塑躯。”次日回到青州，你将新斩这截交由奇珍楼暗兑了三百二十灵石。'
               : '丹谷执事眼见古阵杀机竟为你所用，惊疑之下不敢恋战，只得喝令同门仓皇退沼。孤岛重归寂静，断玉中的苍溟久久凝视着那截养魂木，收起平日讥诮：“好样的，{{name}}。留着这木心别白白糟蹋，结丹时只需借它一丝温息护魂，待你金丹大成、叩问元婴前夕，便足以替本座重塑真躯！”';
           },
         ],
@@ -2305,11 +2731,14 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
       },
       {
         id: 'soul2_seize_wood_for_self',
-        label: '独凭阵图抢斩【千年养魂木】，明言此木只作己身底牌、绝不轻许塑身',
+        label: (s) =>
+          s.flags.act3_soul_advantage
+            ? '独凭所记阵位抢斩【千年养魂木】，明言此木只作己身底牌、绝不轻许塑身'
+            : '独凭剑锋硬闯古阵抢斩【千年养魂木】，明言此木只作己身底牌、绝不轻许塑身',
         subtext: '养魂木留作己用，当面浇冷苍溟借躯复生的心思，令其彻底戒备反目。',
         visible: (s) => s.companions.cang_ming.met,
         insightTags: (s) => [
-          s.relics.includes('soul_nourishing_wood') ? '折现320灵石' : '得【千年养魂木】',
+          s.relics.includes('soul_nourishing_wood') ? '易石三百二十' : '得【千年养魂木】',
           '苍溟大幅降好感',
           '修为与心境',
         ],
@@ -2338,15 +2767,19 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
                   '黑柏孤岛斩获养魂木后，你冷声宣告此木只为己用，断玉内的剑气骤然冷如寒铁。',
               },
             },
-            logSummary:
-              '独凭阵图夺得【千年养魂木】，当面拒许塑身之诺，与苍溟渐成冰炭。',
+            logSummary: s.flags.act3_soul_advantage
+              ? '独凭所记阵位夺得【千年养魂木】，当面拒许塑身之诺，与苍溟渐成冰炭。'
+              : '独凭剑锋硬闯古阵夺得【千年养魂木】，当面拒许塑身之诺，与苍溟渐成冰炭。',
           };
         },
         outcome: [
-          '你并未顺着苍溟的口令引剑，而是依着残碑拓图斜切离位，三剑震飞挡路的丹谷执事，反手把那截温润沉重的【千年养魂木】收入怀中。',
+          (s) =>
+            s.flags.act3_soul_advantage
+              ? '你并未顺着苍溟的口令引剑，而是依着早先记熟的生门方位避开离位碎剑死门、斜切坎侧，三剑震飞挡路的丹谷执事，反手把那截温润沉重的【千年养魂木】收入怀中。'
+              : '你并未顺着苍溟的口令引剑，而是冷眼避开离位剑煞死门、仗着筑基剑锋强劈坎侧破绽，三剑震飞挡路的丹谷执事，反手把那截温润沉重的【千年养魂木】收入怀中。',
           (s) =>
             s.flags.soul2_wood_converted
-              ? '袖中断玉猛地一颤，苍溟嗓音低哑：“你手里本就有一截，这截也不肯留给我？”你淡淡扣紧木匣，顺手将多出这截带回黑市折现三百二十灵石：“归谁用，由我说了算。”玉中死寂片刻，只剩一声冷嗤。'
+              ? '袖中断玉猛地一颤，苍溟嗓音低哑：“你手里本就有一截，这截也不肯留给我？”你淡淡扣紧木匣：“归谁用，由我说了算。”玉中死寂片刻，只剩一声冷嗤在荒泽夜风里散开。次日折返青州后，你将多出这截托暗市暗兑了三百二十灵石。'
               : '袖中断玉猛地一颤，苍溟嗓音低哑：“你既得了养魂木，便该知道它对我意味着什么。”你淡淡扣紧木匣：“木是我拿命抢来的，归谁用，由我说了算。”玉中死寂片刻，只剩一声冷嗤在识海散开。',
         ],
         outcomeContinueLabel: '独收战利 · 踏月离开荒泽',
@@ -2396,12 +2829,12 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
         outcome: [
           '你并未趁火打劫，反手一剑替那名受困的丹谷执事荡开一道劫火，扬声报出价码：外围残阵散落的古灵晶尽归他们，另补二百灵石作赔，唯有岛心这截养魂木归你。',
           (s) => {
-            const extra = s.flags.soul2_wood_converted
-              ? '你怀中本就备有一截养魂木，出岛后转手把新得这截折给奇珍楼，扣去赔款反净赚一百二十灵石。'
+            const afterReturn = s.flags.soul2_wood_converted
+              ? '次日回城后，你把多出这截新木易予奇珍楼，扣去赔款反净赚一百二十灵石。'
               : '';
             return s.flags.soul2_had_jade_before
-              ? `对手伤势不轻，见你识得生门又有诚意，顺水推舟拱手应诺。你安安稳稳收起【千年养魂木】，${extra}苍溟在识海里哼了一声：“虽不够痛快，倒也没白添几个大宗死敌，算你会算账。”`
-              : `对手伤势不轻，见你识得生门又有诚意，顺水推舟拱手应诺。你安安稳稳收起【千年养魂木】与树根旧玉，${extra}苍溟在识海里哼了一声：“虽不够痛快，倒也没白添几个大宗死敌，算你会算账。”`;
+              ? `对手伤势不轻，见你识得生门又有诚意，顺水推舟拱手应诺。你安安稳稳收起【千年养魂木】，苍溟在识海里哼了一声：“虽不够痛快，倒也没白添几个大宗死敌，算你会算账。”${afterReturn}`
+              : `对手伤势不轻，见你识得生门又有诚意，顺水推舟拱手应诺。你安安稳稳收起【千年养魂木】与树根旧玉，苍溟在识海里哼了一声：“虽不够痛快，倒也没白添几个大宗死敌，算你会算账。”${afterReturn}`;
           },
         ],
         outcomeContinueLabel: '携木离岛 · 返回青州风云',
@@ -2413,7 +2846,7 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
         id: 'soul2_ruthless_ambush',
         label: '冷眼坐视对手被古阵重创后骤然出手清场，尽收养魂木与储物重金',
         insightTags: (s) => [
-          s.relics.includes('soul_nourishing_wood') ? '多木折现共540灵石' : '得【千年养魂木】+220灵石',
+          s.relics.includes('soul_nourishing_wood') ? '多木易石共五百四十' : '得【千年养魂木】+220灵石',
           '修为与魔煞',
         ],
         effect: (s) => {
@@ -2442,30 +2875,30 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
                 affectionDelta: s.companions.cang_ming.affection < 10 ? 0 : 10,
                 setStage: 4,
                 chronicle: metBefore
-                  ? '古战场孤岛上你出手果绝清场夺木，他大笑称长明遗世本就不养心软之人。'
-                  : '长明古战场黑柏孤岛自断玉中苏醒相逢，你果绝清场夺木并拾起旧玉，他冷笑赞你狠辣。',
+                  ? '古战场孤岛上你出手果决清场夺木，他大笑称长明遗世本就不养心软之人。'
+                  : '长明古战场黑柏孤岛自断玉中苏醒相逢，你果决清场夺木并拾起旧玉，他冷笑赞你狠辣。',
               },
             },
             logSummary: hadWood
-              ? '趁宗门修士折戟古战场残阵果断清场，多余养魂木折现，共掠五百四十灵石。'
+              ? '趁宗门修士折戟古战场残阵果断清场，多余养魂木暗兑易石，共掠五百四十灵石。'
               : '趁宗门修士折戟古战场残阵之际果断清场，独吞【千年养魂木】与二百二十灵石。',
           };
         },
         outcome: [
-          '你匿在雾影里耐心等了两息，直到古阵劫火彻底轰碎对手护身玉佩，才如苍鹰扑兔般纵身而下！三招剑光闪过，重伤的宗门修士无力抵抗，丢下储物袋狼狈逃入黑水。',
+          '你匿在雾影里耐心等了两息，直到古阵劫火彻底轰碎对手护身玉佩，才自暗影里暴起扑落！三招剑光闪过，重伤的宗门修士无力抵抗，丢下储物袋狼狈逃入黑水。',
           (s) => {
             const jadePickup = s.flags.soul2_had_jade_before
               ? ''
               : '顺手把树根旁那枚【焦黑断玉】一并揣入袖中。';
             return s.flags.soul2_wood_converted
-              ? `你卷走二百二十块灵石并劈下【千年养魂木】，${jadePickup}回城将多出这截折现三百二十灵石。苍溟冷哼：“够狠，这末法世道，心慈手软的人早在筑基前就成灰了。”`
+              ? `你卷走二百二十块灵石并劈下【千年养魂木】，${jadePickup}苍溟冷哼：“够狠，这末法世道，心慈手软的人早在筑基前就成灰了。”次日回城，你便将多出这截新木暗兑了三百二十灵石。`
               : `你挥袖卷走二百二十块灵石，反手劈下墨玉生辉的【千年养魂木】，${jadePickup}苍溟在识海里冷哼一声：“够狠，这末法世道，心慈手软的人早在筑基前就成灰了。”`;
           },
         ],
         outcomeContinueLabel: '满载而归 · 踏出荒泽',
         bridgeNote: (s) =>
           s.flags.soul2_wood_converted
-            ? '你以铁血手腕清场荒泽并将多余养魂木折现，共收五百四十灵石，身家与杀伐气俱涨。'
+            ? '你以铁血手腕清场荒泽并将多余养魂木暗兑，共收五百四十灵石，身家与杀伐气俱涨。'
             : '你以铁血手腕自长明古战场夺回【千年养魂木】与二百二十灵石，身家与杀伐气俱涨。',
         next: 'act3_hub',
       },
@@ -2547,7 +2980,7 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
         id: 'r3_2_buy_sand',
         label: '趁低价花一百八十灵石吃下两份【金脉灵砂】，日后逢高出货',
         requirement: { minSpiritStones: 180, lockReason: '需灵石 180' },
-        insightTags: ['低吸两份金脉灵砂', '坊市套利'],
+        insightTags: ['趁贱购入两份金脉灵砂', '待涨出货'],
         effect: {
           spiritStones: -180,
           renown: 4,
@@ -2556,7 +2989,7 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
           ],
         },
         outcome: [
-          '两份【金脉灵砂】在奇珍楼平日至少值三百余灵石，如今一百八十灵石便收入囊中。小矿主攥着灵石连连作揖，立刻招呼矿工们分钱散伙。',
+          '两份【金脉灵砂】在奇珍楼平日至少值三百余灵石，如今一百八十灵石便收入囊中。小矿主攥着灵石连连作揖，立刻招呼矿工们分石散伙。',
           '你验过砂质赤金透亮，满意地收进储物囊，待仙盟封矿风声一起，这两匣货便能赚个盆满钵满。',
         ],
         outcomeContinueLabel: '收好灵砂 · 返回青州风云',
@@ -2592,7 +3025,7 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
           worldly: -4,
         },
         outcome: [
-          '你在高坡凝望良久，眼见赤沙矿最后那一缕地气并未散入山风，而是被云层之上的无形巨力笔直抽走。记下这处地脉坐标后，你静静转身回城。',
+          '你在高坡凝望良久，眼见赤沙矿最后那一缕地气并未散入山风，而是被云层之上的无形巨力笔直抽走。记下这处地脉方位后，你静静转身回城。',
         ],
         outcomeContinueLabel: '收起行记 · 返回青州风云',
         bridgeNote:
@@ -2682,7 +3115,7 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
       {
         id: 'r3_4_study_notes',
         label: '恭敬敛骨入土，静坐三日研读青铜手记里的结丹破障心得',
-        insightTags: ['心境与修为', '硬冲结丹门槛降至195'],
+        insightTags: ['心境与修为', '大幅折减强冲结丹之险'],
         effect: {
           mind: 12,
           might: 6,
@@ -2747,10 +3180,14 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
     choices: [
       {
         id: 'core_orthodox_elixir',
-        label: '吞服【九纹凝丹丸】，依正统丹道火候稳健凝成无瑕金丹',
-        subtext: '消耗【九纹凝丹丸】，九州百年难求的护道圣药，可保最稳妥渡劫凝丹。',
+        label: '吞服【九纹凝丹丸】，依正统丹道火候稳健凝成九纹无瑕金丹',
+        subtext: '正统丹道专属：消耗【九纹凝丹丸】且须心境定力 ≥ 78，凝成【九纹无瑕金丹】大增底蕴。',
         visible: (s) => s.relics.includes('golden_core_elixir'),
-        insightTags: ['消耗【九纹凝丹丸】', '最稳妥正统结丹', '高底蕴加成'],
+        requirement: {
+          minMind: 78,
+          lockReason: '驾驭九纹丹火须心境定力 ≥ 78',
+        },
+        insightTags: ['正统丹道 · 九纹无瑕金丹', '消耗【九纹凝丹丸】', '增越阶底蕴'],
         effect: {
           timeMonths: 42,
           removeRelics: ['golden_core_elixir'],
@@ -2760,13 +3197,16 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
           setRealm: 'golden_core',
           setAct: 'act4',
           addTags: ['golden_core_dao'],
-          setFlags: { golden_core_method: 'orthodox_elixir' },
+          setFlags: {
+            golden_core_method: 'orthodox_elixir',
+            core_grade: 'flawless',
+          },
           logSummary:
-            '吞服【九纹凝丹丸】闭死关三载半，丹成九纹，平安踏入【金丹期】！',
+            '吞服【九纹凝丹丸】闭死关三载半，丹成九纹无瑕，平安踏入【金丹期】！',
         },
         outcome: [
           '【九纹凝丹丸】入腹化作九道赤金丹环，将狂暴旋转的灵液漩涡牢牢束于中宫。三载零半年的静坐里，你听着石窟外风雨交替，神识却始终澄澈如明镜。',
-          '某日拂晓，丹田内忽传一声清越龙吟！万千灵液坍缩成一粒圆润无瑕的赤金灵丹，磅礴神识轰然破窟而出，覆盖方圆五十里山河！山间云气倒卷成涡，你长身而起，正式踏入五百载寿元的【金丹期】。',
+          '某日拂晓，丹田内忽传一声清越龙吟！万千灵液坍缩成一粒圆润无瑕的九纹赤金灵丹，磅礴神识轰然破窟而出，覆盖方圆五十里山河！山间云气倒卷成涡，你长身而起，正式踏入五百载寿元的【金丹期】。',
         ],
         outcomeContinueLabel: '金丹初成 · 启卷四《劫波起》',
         next: 'act4_opening',
@@ -2776,83 +3216,111 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
         label: (s) =>
           s.relics.includes('spirit_vein_deed')
             ? '以【九州灵脉契】配百枚灵石调动三矿残脉凝丹'
-            : '豪掷三百八十灵石布九宫大阵凝丹',
+            : '凭商道阵理豪掷四百二十灵石布九宫大阵凝丹',
         subtext:
-          '握有【九州灵脉契】只需百枚灵石作阵引且保留地契，否则须耗费三百八十灵石。',
+          '商道/阵道专属途径：须握有【九州灵脉契】，或具备商名/暗市客卿/仙盟客卿/心境≥95 阵理且备足四百二十灵石。',
         visible: (s) =>
-          s.relics.includes('spirit_vein_deed') || s.spiritStones >= 380,
+          s.relics.includes('spirit_vein_deed') ||
+          s.tags.includes('merchant_fame') ||
+          s.tags.includes('dark_market_broker') ||
+          s.tags.includes('alliance_envoy') ||
+          s.mind >= 95,
         requirement: {
           custom: (s) => {
-            const cost = s.relics.includes('spirit_vein_deed') ? 100 : 380;
+            const cost = s.relics.includes('spirit_vein_deed') ? 100 : 420;
             return s.spiritStones >= cost
               ? { ok: true }
               : { ok: false, reason: `需灵石 ${cost} 布阵` };
           },
         },
         insightTags: (s) => [
-          s.relics.includes('spirit_vein_deed') ? '灵脉契+100灵石' : '耗380灵石',
-          '稳健破境',
+          '商道/阵道专属 · 地脉金丹',
+          s.relics.includes('spirit_vein_deed') ? '灵脉契+100灵石' : '耗420灵石',
         ],
         effect: (s) => {
           const useDeed = s.relics.includes('spirit_vein_deed');
           return {
             timeMonths: 48,
-            spiritStones: useDeed ? -100 : -380,
+            spiritStones: useDeed ? -100 : -420,
             might: 20,
             mind: 12,
             renown: 14,
             setRealm: 'golden_core',
             setAct: 'act4',
             addTags: ['golden_core_dao'],
-            setFlags: { golden_core_method: 'vein_array' },
+            setFlags: {
+              golden_core_method: 'vein_array',
+              core_grade: 'vein_core',
+            },
             notice: useDeed
               ? '催动【九州灵脉契】引来三矿地气，保留地契且安稳凝丹！'
-              : '耗尽三百八十灵石铺成九宫聚灵大阵，灵潮贯体凝成金丹！',
+              : '耗尽四百二十灵石铺成九宫聚灵大阵，灵潮贯体凝成金丹！',
             logSummary:
               '借九宫灵脉大阵聚拢四方地气闭关四载，终成【金丹期】大道！',
           };
         },
         outcome: [
           '山腹醒了！九宫阵盘埋入青石地脉，滚滚灵雾沿阵线倒灌石窟，四载寒暑间灵石与矿气在阵眼化作漫天银辉，硬生生撑出一片宛如上古未枯的浓稠灵域。',
-          '第四年岁暮，灵雾尽敛。一粒沉重辉煌的金丹稳稳悬定气海，石窟穹顶绽开十丈青莲虚影，待你推开石门，九州大宗亦须尊称一声真人。五百载寿元落袋。',
+          '第四年岁暮，灵雾尽敛。一粒沉重辉煌的金丹稳稳悬定气海，石窟穹顶绽开十丈青莲虚影，待你推开石门，九州大宗亦须尊称一声真人。五百载寿元入命，尘劫暂远。',
         ],
         outcomeContinueLabel: '出窟望九州 · 启卷四《劫波起》',
         next: 'act4_opening',
       },
       {
         id: 'core_cangming_soulwood',
-        label: '请苍溟行三千年前剑丹古法，借【千年养魂木】温息护魂凝就剑意金丹',
+        label: '请苍溟行三千年前剑丹古法，借【千年养魂木】温息护魂凝就太古剑丹',
         subtext:
-          '仅借木心清气稳固神魂，绝不损耗【千年养魂木】本源，留待结婴前夕替苍溟重塑真身。',
+          '剑道/古魂专属途径：须持【千年养魂木】、与苍溟情谊≥45 且具剑道根基（剑意雏形/残魂之契/太古剑基）；不损耗养魂木且铸就极强越阶【太古剑丹】！',
         visible: (s) =>
           s.relics.includes('soul_nourishing_wood') &&
           s.companions.cang_ming.met &&
           s.companions.cang_ming.stance !== 'estranged' &&
           s.companions.cang_ming.stance !== 'rival',
-        insightTags: ['不消耗养魂木', '苍溟护法', '最强剑丹底蕴'],
+        requirement: {
+          custom: (s) => {
+            if (s.companions.cang_ming.affection < 45) {
+              return {
+                ok: false,
+                reason: `须与苍溟深厚互信（好感≥45，当前 ${s.companions.cang_ming.affection}）`,
+              };
+            }
+            if (
+              !s.tags.includes('sword_intent_seed') &&
+              !s.tags.includes('cangming_pact') &&
+              s.flags.foundation_grade !== 'sword_ancient'
+            ) {
+              return { ok: false, reason: '须具剑道根基（剑意雏形/残魂之契/太古剑基）' };
+            }
+            return { ok: true };
+          },
+        },
+        insightTags: ['剑道专属 · 太古剑丹', '不消耗养魂木', '极强越阶杀伐'],
         effect: {
           timeMonths: 36,
-          might: 26,
+          might: 28,
           mind: 14,
           renown: 10,
           setRealm: 'golden_core',
           setAct: 'act4',
           addTags: ['golden_core_dao', 'sword_intent_seed'],
-          setFlags: { golden_core_method: 'cangming_sword_core' },
+          setFlags: {
+            golden_core_method: 'cangming_sword_core',
+            core_grade: 'sword_core',
+          },
           companionUpdates: {
             cang_ming: {
               markSeen: true,
-              affectionDelta: 12,
+              affectionDelta: 10,
               chronicle:
-                '你结丹之际，他亲以三千年前剑丹古法为你镇脉，借千年养魂木清气护你凝出凌厉剑丹。',
+                '你结丹之际，他亲以三千年前剑丹古法为你镇脉，借千年养魂木清气护你凝出越阶太古剑丹。',
             },
           },
           logSummary:
-            '得苍溟亲授上古剑丹之法，借【千年养魂木】温息护魂三载，一举凝就无上剑意金丹！',
+            '得苍溟亲授上古剑丹之法，借【千年养魂木】温息护魂三载，一举凝就无上太古剑丹！',
         },
         outcome: [
           '你将【千年养魂木】横置于膝前，怀中焦黑断玉悬空绽出万道青芒。苍溟低喝如雷：“守住中宫，以灵液为铁，以剑意为锤，千锻成丹！”养魂木散出的温润墨玉清气丝丝缕缕缠住你的识海，将所有凝丹燥煞抚得服服帖帖，而木心本源丝毫无损。',
-          '三载锻磨，一朝破茧！丹成之刻，整座石窟石壁被无形剑气刻满细密剑纹，你的金丹之上隐现一道微不可察的青色剑环。苍溟长吁一口气，笑声畅快：“好一粒剑丹！走吧，该去中州掀翻九州那些老家伙的棋盘了！”',
+          '三载锻磨，一朝破茧！丹成之刻，整座石窟石壁被无形剑气刻满细密剑纹，你的金丹之上隐现一道微不可察的青色剑环。苍溟长吁一口气，笑声畅快：“好一粒太古剑丹！走吧，有此丹在腹，元婴之下皆可一战！”',
         ],
         outcomeContinueLabel: '携剑丹出关 · 启卷四《劫波起》',
         next: 'act4_opening',
@@ -2861,15 +3329,11 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
         id: 'core_blood_demon_shortcut',
         label: '逆行吞煞古诀，强纳地底残煞与劫灰催熟魔道血丹',
         subtext: (s) =>
-          `【极险】以地底煞气强催金丹，若心境不足 105（当前 ${s.mind}），必遭煞火焚神入魔身陨。`,
+          `【魔道专属】须已步入魔煞道途（正气≤-10或身负血丹染煞），若心境不足 105（当前 ${s.mind}）必遭煞火焚神；成丹则正道故人寒心。`,
         visible: (s) =>
-          s.alignment.righteous <= -10 ||
-          s.tags.includes('blood_pill_tainted') ||
-          (!s.relics.includes('golden_core_elixir') &&
-            !s.relics.includes('spirit_vein_deed') &&
-            s.spiritStones < 380),
+          s.alignment.righteous <= -10 || s.tags.includes('blood_pill_tainted'),
         insightTags: (s) => [
-          '极高入魔风险',
+          '魔道专属 · 吞煞魔丹',
           `需心境≥105（当前 ${s.mind}）`,
           '命格【吞煞魔尊】',
         ],
@@ -2894,7 +3358,16 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
             addTags: ['golden_core_dao', 'demonic_sovereign'],
             setFlags: {
               golden_core_method: 'blood_demon',
+              core_grade: 'blood_demon',
               core_blood_failed: false,
+            },
+            companionUpdates: {
+              ...(s.companions.shen_qingshuang.met
+                ? { shen_qingshuang: { affectionDelta: -12 } }
+                : {}),
+              ...(s.companions.su_zhiwei.met && isSuZhiweiAlive(s)
+                ? { su_zhiwei: { affectionDelta: -10 } }
+                : {}),
             },
             logSummary:
               '以冷铁心境强吞地底残煞凝就魔道金丹，成就【吞煞魔尊】威名！',
@@ -2952,6 +3425,7 @@ export const ACT3_SCENES: Record<string, SceneDefinition> = {
             addTags: ['golden_core_dao'],
             setFlags: {
               golden_core_method: strong ? 'bare_force' : 'bare_force_injured',
+              core_grade: strong ? 'bare_pure' : 'bare_injured',
               core_bare_failed: false,
               core_bare_injured: !strong,
             },

@@ -21,15 +21,22 @@ import {
 } from './time';
 import { recalculateMarketPulse } from './economy';
 import { interpolateText, resolveParagraphs, resolveTextValue } from './template';
+import {
+  ACT_MAJOR_THREADS,
+  isCompanionDeceased,
+  MAJOR_THREAD_LABELS,
+  MAX_MAJOR_ARCS_PER_ACT,
+} from './systems';
+import { canCommitBond, canTriggerMilestone1 } from './sanctuary';
 
 export const SCHEMA_VERSION = 1;
 
 function makeEmptyCompanions(): Record<CompanionId, CompanionRuntimeState> {
   return {
-    shen_qingshuang: { met: false, affection: 0, stance: 'unmet', stage: 0, chronicle: [] },
-    xie_wujiu: { met: false, affection: 0, stance: 'unmet', stage: 0, chronicle: [] },
-    su_zhiwei: { met: false, affection: 0, stance: 'unmet', stage: 0, chronicle: [] },
-    cang_ming: { met: false, affection: 0, stance: 'unmet', stage: 0, chronicle: [] },
+    shen_qingshuang: { met: false, affection: 0, stance: 'unmet', stage: 0, chronicle: [], bondType: 'none', milestoneStage: 0, letters: [] },
+    xie_wujiu: { met: false, affection: 0, stance: 'unmet', stage: 0, chronicle: [], bondType: 'none', milestoneStage: 0, letters: [] },
+    su_zhiwei: { met: false, affection: 0, stance: 'unmet', stage: 0, chronicle: [], bondType: 'none', milestoneStage: 0, letters: [] },
+    cang_ming: { met: false, affection: 0, stance: 'unmet', stage: 0, chronicle: [], bondType: 'none', milestoneStage: 0, letters: [] },
   };
 }
 
@@ -39,8 +46,8 @@ export function autoDeriveStance(
 ): CompanionStance {
   if (current === 'estranged') return 'estranged';
   if (affection <= -15) return 'rival';
-  if (affection >= 60) return 'bonded';
-  if (affection >= 20) return 'confidant';
+  if (affection >= 75) return 'bonded';
+  if (affection >= 30) return 'confidant';
   if (current === 'rival' && affection <= -5) return 'rival';
   return 'stranger';
 }
@@ -64,11 +71,30 @@ export function applyEffect(
     activeThreads: [...state.activeThreads],
     completedThreads: [...state.completedThreads],
     companions: {
-      shen_qingshuang: { ...state.companions.shen_qingshuang, chronicle: [...state.companions.shen_qingshuang.chronicle] },
-      xie_wujiu: { ...state.companions.xie_wujiu, chronicle: [...state.companions.xie_wujiu.chronicle] },
-      su_zhiwei: { ...state.companions.su_zhiwei, chronicle: [...state.companions.su_zhiwei.chronicle] },
-      cang_ming: { ...state.companions.cang_ming, chronicle: [...state.companions.cang_ming.chronicle] },
+      shen_qingshuang: {
+        ...state.companions.shen_qingshuang,
+        chronicle: [...state.companions.shen_qingshuang.chronicle],
+        letters: [...(state.companions.shen_qingshuang.letters ?? [])],
+      },
+      xie_wujiu: {
+        ...state.companions.xie_wujiu,
+        chronicle: [...state.companions.xie_wujiu.chronicle],
+        letters: [...(state.companions.xie_wujiu.letters ?? [])],
+      },
+      su_zhiwei: {
+        ...state.companions.su_zhiwei,
+        chronicle: [...state.companions.su_zhiwei.chronicle],
+        letters: [...(state.companions.su_zhiwei.letters ?? [])],
+      },
+      cang_ming: {
+        ...state.companions.cang_ming,
+        chronicle: [...state.companions.cang_ming.chronicle],
+        letters: [...(state.companions.cang_ming.letters ?? [])],
+      },
     },
+    actMajorArcs: Object.fromEntries(
+      Object.entries(state.actMajorArcs ?? {}).map(([k, arr]) => [k, [...arr]])
+    ),
     market: {
       ...state.market,
       holdings: { ...state.market.holdings },
@@ -80,7 +106,11 @@ export function applyEffect(
   if (effect.lifespanBonus) {
     next.lifespanBonus += effect.lifespanBonus;
     next.lifespanYears += effect.lifespanBonus;
-    notices.push(`寿元增延 ${effect.lifespanBonus} 载`);
+    notices.push(
+      effect.lifespanBonus > 0
+        ? `寿元增延 ${effect.lifespanBonus} 载`
+        : `伤及本源：寿元折损 ${Math.abs(effect.lifespanBonus)} 载`
+    );
   }
 
   if (effect.setRealm && effect.setRealm !== next.realm) {
@@ -93,6 +123,15 @@ export function applyEffect(
   }
 
   if (effect.setAct) {
+    if (effect.setAct !== state.act) {
+      const prevActThreads = ACT_MAJOR_THREADS[state.act] ?? [];
+      for (const tid of prevActThreads) {
+        if (!next.completedThreads.includes(tid)) {
+          next.flags[`missed_${tid}`] = true;
+          next.activeThreads = next.activeThreads.filter((a) => a !== tid);
+        }
+      }
+    }
     next.act = effect.setAct;
     next.actBeat = 0;
   }
@@ -191,6 +230,10 @@ export function applyEffect(
     Object.assign(next.flags, effect.setFlags);
   }
 
+  if (effect.setDaoPartnerId) {
+    next.daoPartnerId = effect.setDaoPartnerId;
+  }
+
   if (effect.activateThreads) {
     for (const th of effect.activateThreads) {
       if (!next.activeThreads.includes(th) && !next.completedThreads.includes(th)) {
@@ -204,6 +247,36 @@ export function applyEffect(
       next.activeThreads = next.activeThreads.filter((a) => a !== th);
       if (!next.completedThreads.includes(th)) {
         next.completedThreads.push(th);
+      }
+    }
+  }
+
+  // 天时大势席位占位（每幕至多深度介入 2 条核心大势，占满后未介入大势自动演进为缺席余波）
+  if (effect.commitMajorArc) {
+    const { act: targetAct, threadId } = effect.commitMajorArc;
+    const actPool = ACT_MAJOR_THREADS[targetAct] ?? [];
+    if (actPool.includes(threadId)) {
+      const committed = [...(next.actMajorArcs?.[targetAct] ?? [])];
+      if (!committed.includes(threadId)) {
+        committed.push(threadId);
+        next.actMajorArcs = { ...(next.actMajorArcs ?? {}), [targetAct]: committed };
+      }
+      if (committed.length >= MAX_MAJOR_ARCS_PER_ACT) {
+        const missedNames: string[] = [];
+        for (const tid of actPool) {
+          if (!committed.includes(tid) && !next.completedThreads.includes(tid)) {
+            if (!next.flags[`missed_${tid}`]) {
+              next.flags[`missed_${tid}`] = true;
+              missedNames.push(MAJOR_THREAD_LABELS[tid] ?? tid);
+            }
+            next.activeThreads = next.activeThreads.filter((a) => a !== tid);
+          }
+        }
+        if (missedNames.length > 0) {
+          notices.push(
+            `天时有限：本卷已定两处大势，未及插手的【${missedNames.join('、')}】已随世局自行演进`
+          );
+        }
       }
     }
   }
@@ -231,6 +304,17 @@ export function applyEffect(
   }
 
   // 伴侣状态更新
+  const suWasDeceased = isCompanionDeceased(state, 'su_zhiwei');
+  const maxSuDeathYear = START_YEAR + (next.flags.su_zhiwei_saved_longlife ? 79 : 49);
+  if (next.flags.su_zhiwei_passed && !next.companions.su_zhiwei.deceased) {
+    next.companions.su_zhiwei.deceased = true;
+    next.companions.su_zhiwei.deceasedYear = Math.min(next.year, maxSuDeathYear);
+    if (!suWasDeceased && next.companions.su_zhiwei.met) {
+      notices.push('故人【苏知微】安然辞世，杏林余灯长留心间');
+    }
+  }
+
+  const affNoticeCandidates: Array<{ cid: CompanionId; prevAff: number }> = [];
   if (effect.companionUpdates) {
     for (const [key, upd] of Object.entries(effect.companionUpdates)) {
       if (!upd) continue;
@@ -238,6 +322,17 @@ export function applyEffect(
       const comp = next.companions[cid];
       const def = registry.companions[cid];
       if (!comp || !def) continue;
+
+      const wasDeceased = isCompanionDeceased(state, cid);
+      if (upd.markDeceased && !comp.deceased) {
+        comp.deceased = true;
+        comp.deceasedYear =
+          cid === 'su_zhiwei' ? Math.min(next.year, maxSuDeathYear) : next.year;
+        if (!wasDeceased && comp.met) {
+          notices.push(`故人【${def.name}】已然辞世`);
+        }
+      }
+      const isDeceasedNow = isCompanionDeceased(next, cid);
 
       if (upd.meet && !comp.met) {
         comp.met = true;
@@ -249,14 +344,53 @@ export function applyEffect(
         comp.lastSeenAgeMonths = next.ageMonths;
       }
 
+      const prevAff = comp.affection;
+      const breakingNow =
+        upd.setStance === 'estranged' || upd.setStance === 'rival';
       if (upd.affectionDelta) {
         comp.affection = Math.max(-100, Math.min(500, comp.affection + upd.affectionDelta));
-        if (comp.met) {
-          if (upd.affectionDelta >= 8) {
-            notices.push(`${def.name}对你心生亲近`);
+        // 已辞世（或本步刚刚辞世 / 决裂）的故人绝不推送“对你心生亲近”等活人好感提示
+        if (comp.met && !isDeceasedNow && !upd.silentNotice) {
+          if (upd.affectionDelta >= 8 && !breakingNow) {
+            if (comp.bondType === 'dao_partner') {
+              notices.push(`${def.name}与你心意愈契`);
+            } else if (comp.stance === 'bonded' || comp.affection >= 75) {
+              notices.push(`${def.name}对你情深意重`);
+            } else if (comp.stance === 'confidant' || comp.affection >= 30) {
+              notices.push(`${def.name}与你默契渐深`);
+            } else {
+              notices.push(`${def.name}对你多了几分信任`);
+            }
           } else if (upd.affectionDelta <= -8) {
             notices.push(`${def.name}与你心生芥蒂`);
           }
+          if (upd.affectionDelta > 0 && !breakingNow) {
+            affNoticeCandidates.push({ cid, prevAff });
+          }
+        }
+      }
+
+      if (upd.setBondType) {
+        comp.bondType = upd.setBondType;
+        if (upd.setBondType === 'dao_partner') {
+          next.daoPartnerId = cid;
+        }
+      }
+
+      if (upd.setMilestoneStage !== undefined) {
+        comp.milestoneStage = Math.max(comp.milestoneStage ?? 0, upd.setMilestoneStage);
+      }
+
+      if (upd.addLetter && comp.met) {
+        const letters = comp.letters ?? [];
+        if (!letters.some((l) => l.id === upd.addLetter!.id)) {
+          letters.push({
+            id: upd.addLetter.id,
+            year: next.year,
+            title: interpolateText(upd.addLetter.title, next),
+            body: interpolateText(upd.addLetter.body, next),
+          });
+          comp.letters = letters;
         }
       }
 
@@ -271,23 +405,46 @@ export function applyEffect(
         if (upd.setStance === 'estranged') {
           comp.stance = 'estranged';
           comp.affection = Math.min(comp.affection, -30);
+          if (comp.bondType === 'dao_partner' || next.daoPartnerId === cid) {
+            next.flags.former_dao_partner = cid;
+            if (next.daoPartnerId === cid) next.daoPartnerId = undefined;
+          }
+          comp.bondType = 'none';
         } else if (upd.setStance === 'rival') {
           comp.stance = 'rival';
           comp.affection = Math.min(comp.affection, -15);
+          if (comp.bondType === 'dao_partner' || next.daoPartnerId === cid) {
+            next.flags.former_dao_partner = cid;
+            if (next.daoPartnerId === cid) next.daoPartnerId = undefined;
+          }
+          comp.bondType = 'none';
         } else if (upd.setStance === 'bonded') {
-          comp.stance = 'bonded';
-          comp.affection = Math.max(comp.affection, 60);
+          // 除非由结契仪式/极深牺牲明确授予，或好感已达 75，否则不越级跳至心许
+          if (upd.setBondType || comp.affection >= 75 || prevStance === 'bonded') {
+            comp.stance = 'bonded';
+            comp.affection = Math.max(comp.affection, 75);
+          } else {
+            comp.stance = 'confidant';
+            comp.affection = Math.max(comp.affection, 30);
+          }
         } else if (upd.setStance === 'confidant') {
-          comp.affection = Math.max(comp.affection, 20);
+          comp.affection = Math.max(comp.affection, 30);
           comp.stance =
-            prevStance === 'bonded' || comp.affection >= 60
+            prevStance === 'bonded' || comp.affection >= 75
               ? 'bonded'
               : 'confidant';
         } else {
           comp.stance = upd.setStance;
         }
-      } else if (comp.met) {
-        comp.stance = autoDeriveStance(comp.stance, comp.affection);
+      } else if (comp.met && !isDeceasedNow) {
+        const derived = autoDeriveStance(comp.stance, comp.affection);
+        const keepBonded =
+          comp.stance === 'bonded' &&
+          (upd.affectionDelta ?? 0) >= 0 &&
+          (comp.bondType === 'dao_partner' ||
+            comp.bondType === 'sworn' ||
+            comp.affection >= 50);
+        comp.stance = keepBonded ? 'bonded' : derived;
       }
 
       if (upd.chronicle && comp.met) {
@@ -300,6 +457,40 @@ export function applyEffect(
         if (!duplicateBody) {
           comp.chronicle.push(entry);
         }
+      }
+    }
+  }
+
+  // 若苍溟已被永封断玉，清除其既有道侣/挚交名分
+  if (next.flags.cangming_sealed || next.flags.act4_cangming_sealed) {
+    if (
+      next.companions.cang_ming.bondType === 'dao_partner' ||
+      next.daoPartnerId === 'cang_ming'
+    ) {
+      next.flags.former_dao_partner = 'cang_ming';
+      if (next.daoPartnerId === 'cang_ming') next.daoPartnerId = undefined;
+    }
+    if (next.companions.cang_ming.bondType && next.companions.cang_ming.bondType !== 'none') {
+      next.companions.cang_ming.bondType = 'none';
+    }
+  }
+
+  // 全部 stance / milestone / 永封结算完毕后，再校验真正的仙缘 / 结契契机
+  for (const { cid, prevAff } of affNoticeCandidates) {
+    const comp = next.companions[cid];
+    const def = registry.companions[cid];
+    if (!comp || !def || !comp.met) continue;
+    if (prevAff < 30 && comp.affection >= 30 && canTriggerMilestone1(next, cid)) {
+      notices.push(`【仙缘契机】可往「仙缘」与${def.name}推心深谈`);
+    } else if (prevAff < 75 && comp.affection >= 75) {
+      const canDao = canCommitBond(next, cid, 'dao_partner').ok;
+      const canSworn = canCommitBond(next, cid, 'sworn').ok;
+      if (canDao && canSworn) {
+        notices.push(`【结契契机】你与${def.name}情谊已深，可往「仙缘」共定道侣或挚交之誓`);
+      } else if (canSworn) {
+        notices.push(`【结契契机】你与${def.name}情谊已深，可往「仙缘」共定生死挚交之誓`);
+      } else if (canDao) {
+        notices.push(`【结契契机】你与${def.name}情谊已深，可往「仙缘」共定此生唯一道侣之誓`);
       }
     }
   }
@@ -369,6 +560,7 @@ export function createInitialState(
       rumorText: '',
     },
     companions: makeEmptyCompanions(),
+    actMajorArcs: {},
     act: 'act1',
     actBeat: 0,
     totalActions: 0,
@@ -734,12 +926,21 @@ export function advanceChoice(
       }
     }
 
+    const isLongRetreat =
+      scene.id.includes('_cultivate') ||
+      scene.id.includes('breakthrough') ||
+      scene.id.endsWith('_gate') ||
+      effect?.trackActionKey === 'cultivate' ||
+      /闭关|闭死关|静室|枯坐|破境|破关/.test(chosenLabel);
+
     const mortalityEntry: GameState['historyLog'][number] = {
       year: finalYear,
       season: getSeason(finalSeasonIndex),
       ageYears: finalAgeYears,
       title: '枯骨问天',
-      summary: '寿元耗尽、大限临头，未及破关便坐化于闭关静室。',
+      summary: isLongRetreat
+        ? '寿元耗尽、大限临头，未及破关便坐化于闭关静室。'
+        : '寿元耗尽、大限临头，未及破关便气绝于问道途中。',
     };
     const finalHistoryLog = [
       ...state.historyLog,
@@ -752,7 +953,9 @@ export function advanceChoice(
       ageMonths: finalAgeMonths,
       year: finalYear,
       seasonIndex: finalSeasonIndex,
-      recentNotices: finalNotices,
+      recentNotices: finalNotices.filter(
+        (n) => !n.startsWith('【仙缘契机】') && !n.startsWith('【结契契机】')
+      ),
       companions: revertedCompanions,
       historyLog: finalHistoryLog,
     };
@@ -761,6 +964,15 @@ export function advanceChoice(
   const finalScene = registry.scenes[nextSceneId];
   if (!finalScene) {
     throw new Error(`Destination scene not found: ${nextSceneId}`);
+  }
+
+  if (finalScene.isEndingTrigger) {
+    nextState = {
+      ...nextState,
+      recentNotices: nextState.recentNotices.filter(
+        (n) => !n.startsWith('【仙缘契机】') && !n.startsWith('【结契契机】')
+      ),
+    };
   }
 
   const bridgeNote = choice.bridgeNote
