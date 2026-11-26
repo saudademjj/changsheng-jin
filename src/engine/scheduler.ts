@@ -303,9 +303,40 @@ export function applyEffect(
     if (timeRes.notice) notices.unshift(timeRes.notice);
   }
 
-  // 伴侣状态更新
+  // 伴侣状态更新（与 systems.ts 中 isSuZhiweiDeceased 寿限推演严格一致：服露95岁/沉疴32岁/常态68岁）
   const suWasDeceased = isCompanionDeceased(state, 'su_zhiwei');
-  const maxSuDeathYear = START_YEAR + (next.flags.su_zhiwei_saved_longlife ? 79 : 49);
+  const maxSuDeathOffset = next.flags.su_zhiwei_saved_longlife
+    ? 79
+    : next.flags.su_zhiwei_fading
+    ? 16
+    : 52;
+  const maxSuDeathYear = START_YEAR + maxSuDeathOffset;
+
+  // 服露线年满七十五且未赴卷四槐阴送别者，在跨入卷五瞬间即时结算槐阴辞世态，杜绝开篇同屏生死冲突
+  if (
+    effect.setAct === 'act5' &&
+    getAgeYears(next.ageMonths) >= 75 &&
+    next.flags.su_zhiwei_saved_longlife &&
+    !next.flags.act4_mortal_truth_found &&
+    !next.flags.su_zhiwei_passed &&
+    !next.companions.su_zhiwei.deceased
+  ) {
+    next.flags.su_zhiwei_passed = true;
+    next.flags.su_auto_passed_act5_opening = true;
+    if (next.companions.su_zhiwei.met) {
+      const deathYear = Math.min(next.year, START_YEAR + 79);
+      const autoChronicle =
+        '你于卷四错过槐阴末面，待元婴出关时，她已于槐阴药庐安然辞世，余灯与医典交由阿芸一脉续燃。';
+      const entry = `长明${deathYear}年 · ${autoChronicle}`;
+      const hasEntry = next.companions.su_zhiwei.chronicle.some(
+        (existing) => existing === entry || existing.endsWith(` · ${autoChronicle}`)
+      );
+      if (!hasEntry) {
+        next.companions.su_zhiwei.chronicle.push(entry);
+      }
+    }
+  }
+
   if (next.flags.su_zhiwei_passed && !next.companions.su_zhiwei.deceased) {
     next.companions.su_zhiwei.deceased = true;
     next.companions.su_zhiwei.deceasedYear = Math.min(next.year, maxSuDeathYear);
@@ -848,7 +879,7 @@ export function advanceChoice(
   const exemptMortality =
     nextSceneId === 'act2_heart_demon' || Boolean(targetScene?.isEndingTrigger);
   if (lifespanExceeded && !exemptMortality) {
-    if (nextState.relics.includes('longevity_dew')) {
+    if (nextState.relics.includes('longevity_dew') && !nextState.flags.longevity_dew_self_used) {
       const prevLifespan = nextState.lifespanYears;
       const newLifespan = prevLifespan + 20;
       const stillExceeds = getAgeYears(nextState.ageMonths) >= newLifespan;
@@ -867,6 +898,7 @@ export function advanceChoice(
       };
       nextState = {
         ...nextState,
+        flags: { ...nextState.flags, longevity_dew_self_used: true },
         relics: nextState.relics.filter((r) => r !== 'longevity_dew'),
         lifespanBonus: nextState.lifespanBonus + 20,
         lifespanYears: newLifespan,

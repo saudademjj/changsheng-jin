@@ -1121,10 +1121,10 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
         },
         outcome: [
           '你不谈境界也不谈灵石，只卷起袖子帮她把院里几竹匾药材翻晒均匀。苏知微话不多，讲起街坊琐事却格外动听。',
-          '暮色降临时你起身辞行，衣袖间沾满淡淡的草木苦香。',
+          '在药庐小住旬日，待几茬新药尽数晒透，你才趁着暮色起身辞行，衣袖间沾满淡淡的草木苦香。',
         ],
         outcomeContinueLabel: '披着暮色离开杏林',
-        bridgeNote: '在药庐帮苏知微晒了一下午草药，心神难得清静。',
+        bridgeNote: '在杏林药庐小住旬日帮苏知微晒药煎汤，往返两月，心神难得清静。',
         next: returnHubFor,
       },
       {
@@ -1503,7 +1503,7 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
           };
         },
         outcome: [
-          '谢无咎接过残简细看半晌，嘴角惯常挂着的懒散笑意顿时收了起来：“你在哪儿收的？纸背落款与十年前我哥飞升前留下的手记同出一脉。”',
+          '谢无咎接过残简细看半晌，嘴角惯常挂着的懒散笑意顿时收了起来：“你在哪儿收的？纸背落款与昔年我哥应召入光前留下的手记同出一脉。”',
           '他郑重收好残简，替你斟满一盏陈年灵茶，话里少了七分试探，多了几分真交情。',
         ],
         outcomeContinueLabel: '饮尽灵茶，辞别百宝斋',
@@ -1721,7 +1721,7 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
           },
         },
         outcome: [
-          '谢无咎拨完最后三颗玄铁算珠，直接推过来一只沉甸甸的乾坤钱匣：“一百四十块上品折算灵石，外加七十二城暗桩随时听候调遣。你若顺利成婴，我百宝斋在九州便真正站稳了脊梁。”',
+          '谢无咎拨完最后三颗玄铁算珠，直接推过来一只沉甸甸的乾坤钱匣：“折合一百四十块下品灵石的赤金灵晶，外加九州七十二重镇暗桩随时听候调遣。你若顺利成婴，我百宝斋在九州便真正站稳了脊梁。”',
         ],
         outcomeContinueLabel: '收起钱匣，拱手辞行',
         bridgeNote: '得谢无咎暗中筹措百四十灵石，碎丹成婴的底气厚实了许多。',
@@ -1897,7 +1897,7 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
           };
         },
         outcome: [
-          '沈清霜愣了一下才伸手接过符箓。以她首座修为原不缺一张二阶符，可听出你话里关切，眉梢冰霜竟化开半分：“多谢。我会贴身收好。”',
+          '沈清霜愣了一下才伸手接过符箓。以她剑道修为原不缺一张二阶符，可听出你话里关切，眉梢冰霜竟化开半分：“多谢。我会贴身收好。”',
         ],
         outcomeContinueLabel: '目送白衣入林，转身下山',
         bridgeNote: '赠予沈清霜破障符后，两人之间那层疏离感又薄了几分。',
@@ -2121,7 +2121,7 @@ export const AGENCY_SCENES: Record<string, SceneDefinition> = {
             if (s.truthClues.includes('clue_stele_gap')) items.push('飞升碑反文');
             if (s.truthClues.includes('clue_vein_drain')) items.push('灵脉倒流账');
             if (s.truthClues.includes('clue_alliance_pact')) items.push('仙盟百年贡约');
-            if (s.truthClues.includes('clue_zhantian_remnant')) items.push('斩天会四代遗录');
+            if (s.truthClues.includes('clue_zhantian_remnant')) items.push('斩天会四纪遗录');
             if (s.truthClues.includes('clue_tianji_portal')) items.push('转运井灵灰证词');
             if (items.length >= 2) {
               return `石案上摊开你二人历年拼凑的${items.join('、')}与沿途见闻。你们一条条勾连起表象、物证与口供，将天象剧变背后的每一处破绽标得清清楚楚。`;

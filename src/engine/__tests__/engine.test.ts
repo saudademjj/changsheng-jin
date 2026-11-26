@@ -775,7 +775,13 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
     );
     expect(demonChoices.some((c) => c.id === 'final_gilded_realm')).toBe(false);
     expect(demonChoices.some((c) => c.id === 'final_earth_immortal')).toBe(false);
-    expect(demonChoices.some((c) => c.id === 'final_demonic_devour')).toBe(true);
+    expect(demonChoices.find((c) => c.id === 'final_demonic_devour')?.locked).toBe(true);
+    const qualifiedDemonChoices = getResolvedChoices(
+      { ...demonLord, might: 225, mind: 195 },
+      CONTENT_REGISTRY.scenes.act6_final_choice,
+      CONTENT_REGISTRY
+    );
+    expect(qualifiedDemonChoices.find((c) => c.id === 'final_demonic_devour')?.locked).toBe(false);
 
     // 3. 多位心许挚友同屏：绝不出现“与X与Y”双“与”语病
     const multiBonded: GameState = {
@@ -783,7 +789,15 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
       act: 'act6',
       realm: 'deity_transform',
       tags: ['cangming_reborn'],
-      truthClues: ['clue_stele_gap', 'clue_vein_drain', 'clue_blood_pill_dust', 'clue_alliance_pact', 'clue_tianji_portal', 'clue_furnace_cycle'],
+      truthClues: [
+        'clue_stele_gap',
+        'clue_vein_drain',
+        'clue_blood_pill_dust',
+        'clue_alliance_pact',
+        'clue_tianji_portal',
+        'clue_furnace_cycle',
+        'clue_gate_weakness',
+      ],
       companions: {
         ...base.companions,
         shen_qingshuang: { ...base.companions.shen_qingshuang, met: true, affection: 75, stance: 'bonded' },
@@ -1050,11 +1064,13 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
     expect(ztRes.afterCommit.relics).toContain('severing_sword_embryo');
     expect((ztRes.afterChoice.pendingTransition?.paragraphs ?? []).join('')).not.toContain('随身携来');
 
-    // 4. act4_arc_mortal_truth 首次得印不误报“早已珍藏”
+    // 4. act4_arc_mortal_truth 首次得印不误报“早已珍藏”（常年成丹 78 岁未服延寿露时苏知微已寿终）
     const mortalState: GameState = {
       ...baseFound,
       act: 'act4',
       realm: 'golden_core',
+      ageMonths: 78 * 12,
+      year: 2996 + 78,
       relics: [],
       companions: {
         ...baseFound.companions,
@@ -1078,7 +1094,7 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
         .some((c) => c.id === 'market_merchant_ending')
     ).toBe(false);
 
-    // 6. 未延寿的苏知微在卷四不可被寻访（杜绝亡者复活）
+    // 6. 未延寿且已逾六十八岁自然寿限的苏知微在卷四不可被寻访（杜绝亡者复活）
     const act4VisitState: GameState = {
       ...mortalState,
       currentSceneId: 'act4_companion_visit',
@@ -1833,18 +1849,27 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
       ).some((c) => c.id === 'final_mortal_new_era')
     ).toBe(false);
 
-    // 3. P0-3: 圣人强抢高坛不一键魔尊且影响沈清霜 + 魔尊高正道存量可走吞雷 + 魔道伪飞升不立楷模碑 + 魔道伴侣尾声 + 洗白消魔名
+    // 3. P0-3: 圣人强抢高坛须达元婴修为门槛(235)、不一键魔尊且影响沈清霜 + 魔尊高正道存量可走吞雷 + 魔道伪飞升不立楷模碑 + 魔道伴侣尾声 + 洗白消魔名
+    const lowMightSummit: GameState = {
+      ...base,
+      act: 'act5',
+      might: 190,
+      alignment: { righteous: 100, worldly: 20 },
+      currentSceneId: 'act5_arc_summit',
+    };
+    expect(
+      getResolvedChoices(lowMightSummit, CONTENT_REGISTRY.scenes.act5_arc_summit, CONTENT_REGISTRY).find(
+        (c) => c.id === 'summit_storm_altar'
+      )?.locked
+    ).toBe(true);
     const saintSummit = playStep(
       {
-        ...base,
-        act: 'act5',
-        might: 190,
-        alignment: { righteous: 100, worldly: 20 },
+        ...lowMightSummit,
+        might: 240,
         companions: {
           ...base.companions,
           shen_qingshuang: { met: true, affection: 80, stance: 'bonded', stage: 4, chronicle: [] },
         },
-        currentSceneId: 'act5_arc_summit',
       },
       'summit_storm_altar'
     ).afterCommit;
@@ -2003,7 +2028,7 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
       ...base,
       act: 'act5',
       realm: 'nascent_soul',
-      might: 190,
+      might: 240,
       currentSceneId: 'act5_arc_summit',
       companions: {
         ...base.companions,
@@ -2816,7 +2841,7 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
         CONTENT_REGISTRY
       ).some((c) => c.id === 'deity_seal_earth_immortal')
     ).toBe(false);
-    // 中庸正道但心境仅 260 且无印 -> 不可解锁；心境 300 或 持印且心境 220 -> 解锁
+    // 中庸正道心境 260 或心境 300 但既无归尘印又未查明上古无灵纪 -> 不可解锁；查明上古无灵纪且心境 300，或持印且心境 220 -> 解锁
     const midNoSeal: GameState = {
       ...demonWithSeal,
       alignment: { righteous: 10, worldly: 0 },
@@ -2832,6 +2857,17 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
       getResolvedChoices({ ...midNoSeal, mind: 300 }, CONTENT_REGISTRY.scenes.act6_final_choice, CONTENT_REGISTRY).some(
         (c) => c.id === 'final_earth_immortal'
       )
+    ).toBe(false);
+    expect(
+      getResolvedChoices(
+        {
+          ...midNoSeal,
+          mind: 300,
+          truthClues: [...midNoSeal.truthClues, 'clue_mortal_bloodline'],
+        },
+        CONTENT_REGISTRY.scenes.act6_final_choice,
+        CONTENT_REGISTRY
+      ).some((c) => c.id === 'final_earth_immortal')
     ).toBe(true);
     expect(
       getResolvedChoices(
@@ -2858,6 +2894,7 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
         'clue_mortal_blindspot',
         'clue_changming_night',
         'clue_alliance_pact',
+        'clue_gate_weakness',
       ],
       companions: {
         ...base.companions,
@@ -3801,6 +3838,7 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
       ...unmetXieGilded,
       seasonIndex: 1, // 夏
       mind: 320,
+      truthClues: ['clue_mortal_bloodline'],
       companions: {
         ...unmetXieGilded.companions,
         shen_qingshuang: { ...base.companions.shen_qingshuang, met: true, affection: 0, stance: 'stranger' },
@@ -3809,6 +3847,7 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
       },
     };
     const fakeDeathStep = advanceChoice(strangerHidden, 'final_earth_immortal', CONTENT_REGISTRY);
+    expect(fakeDeathStep.state.lifespanYears).toBe(1000);
     const fakeDeathOut = fakeDeathStep.state.pendingTransition?.paragraphs.join('\n') ?? '';
     expect(fakeDeathOut).toContain('“已陨”');
     expect(fakeDeathOut).not.toContain('“已收割”');
@@ -3859,6 +3898,7 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
         'clue_mortal_blindspot',
         'clue_mortal_bloodline',
         'clue_furnace_cycle',
+        'clue_gate_weakness',
       ],
       might: 240,
       companions: {
@@ -4015,9 +4055,16 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
         CONTENT_REGISTRY
       ).chainTier
     ).toBe(3);
+    const summitZeroParas = resolveParagraphs(CONTENT_REGISTRY.scenes.act5_arc_summit.paragraphs, {
+      ...base,
+      act: 'act5',
+    }).join('\n');
+    expect(summitZeroParas).toContain('代天护界');
+    expect(summitZeroParas).not.toContain('依约进贡');
     const summitParas = resolveParagraphs(CONTENT_REGISTRY.scenes.act5_arc_summit.paragraphs, {
       ...base,
       act: 'act5',
+      truthClues: ['clue_alliance_pact'],
     }).join('\n');
     expect(summitParas).toContain('依约进贡');
     expect(summitParas).toContain('保住界壁');
@@ -4888,5 +4935,454 @@ describe('《长生烬》完整六幕核心引擎、限制机制与多结局验�
     }
     expect(getWorldClimateSnapshot({ ...base, act: 'act2' }).veinLabel).toContain('约余四成半');
     expect(getWorldClimateSnapshot({ ...base, act: 'act4' }).veinLabel).toContain('尚余不足二成');
+  });
+
+  it('Cycle 23 专项回归：Phase 1+2 双模型终审七大世界观与状态机不变量防线', () => {
+    const base = createInitialState(makeProfile(), CONTENT_REGISTRY);
+
+    // 1) 苏知微 36 岁（未服露、无沉疴及已稳住两态）入卷四不被判死，沉疴态逾 32 岁判死；
+    //    服露线 75<=age<=95 跳过槐阴跨入卷五后自动结算辞世，绝不瞬移回杏林
+    const extraFlagCases: Array<Record<string, boolean>> = [{}, { su_zhiwei_stabilized: true }];
+    for (const extraFlags of extraFlagCases) {
+      const su36Act4: GameState = {
+        ...base,
+        act: 'act4',
+        realm: 'golden_core',
+        ageMonths: 36 * 12,
+        year: 2996 + 36,
+        flags: { ...base.flags, ...extraFlags },
+        companions: {
+          ...base.companions,
+          su_zhiwei: { met: true, affection: 55, stance: 'confidant', stage: 3, chronicle: [] },
+        },
+        currentSceneId: 'act4_arc_mortal_truth',
+      };
+      expect(isCompanionDeceased(su36Act4, 'su_zhiwei')).toBe(false);
+      expect(isSuZhiweiAlive(su36Act4)).toBe(true);
+      expect(
+        getResolvedChoices(su36Act4, CONTENT_REGISTRY.scenes.act4_companion_visit, CONTENT_REGISTRY)
+          .some((c) => c.id === 'hub4_visit_su')
+      ).toBe(true);
+      const su36MortalChoices = getResolvedChoices(
+        su36Act4,
+        CONTENT_REGISTRY.scenes.act4_arc_mortal_truth,
+        CONTENT_REGISTRY
+      );
+      expect(su36MortalChoices.some((c) => c.id === 'mortal_su_warm_promise')).toBe(true);
+      const su36MortalParas = resolveParagraphs(
+        CONTENT_REGISTRY.scenes.act4_arc_mortal_truth.paragraphs,
+        su36MortalChoices.length ? su36Act4 : su36Act4
+      ).join('\n');
+      expect(su36MortalParas).not.toContain('晚年安然寿终');
+    }
+
+    const su36Fading: GameState = {
+      ...base,
+      act: 'act4',
+      realm: 'golden_core',
+      ageMonths: 36 * 12,
+      year: 2996 + 36,
+      flags: { ...base.flags, su_zhiwei_fading: true },
+      companions: {
+        ...base.companions,
+        su_zhiwei: { met: true, affection: 55, stance: 'confidant', stage: 2, chronicle: [] },
+      },
+    };
+    expect(isCompanionDeceased(su36Fading, 'su_zhiwei')).toBe(true);
+
+    const suSkipHuaiyinPre: GameState = {
+      ...base,
+      act: 'act4',
+      realm: 'golden_core',
+      lifespanYears: 500,
+      ageMonths: 76 * 12,
+      year: 2996 + 76,
+      spiritStones: 800,
+      tags: [...base.tags, 'merchant_fame'],
+      daoPartnerId: 'su_zhiwei',
+      flags: { ...base.flags, su_zhiwei_saved_longlife: true },
+      companions: {
+        ...base.companions,
+        su_zhiwei: {
+          met: true,
+          affection: 90,
+          stance: 'bonded',
+          bondType: 'dao_partner',
+          milestoneStage: 2,
+          stage: 4,
+          chronicle: [],
+        },
+      },
+      currentSceneId: 'act4_nascent_gate',
+    };
+    const enteredAct5 = playStep(suSkipHuaiyinPre, 'nascent_wealth_array').afterCommit;
+    expect(enteredAct5.act).toBe('act5');
+    expect(getAgeYears(enteredAct5.ageMonths)).toBeGreaterThanOrEqual(75);
+    expect(getAgeYears(enteredAct5.ageMonths)).toBeLessThanOrEqual(95);
+    expect(enteredAct5.flags.su_zhiwei_passed).toBe(true);
+    expect(enteredAct5.companions.su_zhiwei.deceased).toBe(true);
+    expect(isCompanionDeceased(enteredAct5, 'su_zhiwei')).toBe(true);
+    const act5OpenEcho = getActTransitionEcho(enteredAct5, 'act5_opening', CONTENT_REGISTRY);
+    expect(act5OpenEcho?.bullets.join('\n')).toContain('故去道侣【苏知微】');
+    expect(act5OpenEcho?.bullets.join('\n')).not.toContain('仍守青州药庐一灯');
+    const act5OpenParas = resolveParagraphs(
+      CONTENT_REGISTRY.scenes.act5_opening.paragraphs,
+      enteredAct5
+    ).join('\n');
+    expect(act5OpenParas).toContain('槐阴古碑旁的药庐安然辞世');
+    const inAct5Hub = playStep(enteredAct5, 'act5_open_sword_resolve').afterCommit;
+    const parleyDeadRes = playStep(
+      { ...inAct5Hub, currentSceneId: 'act5_companion_parley' },
+      'parley_su'
+    );
+    expect((parleyDeadRes.afterChoice.pendingTransition?.paragraphs ?? []).join('\n')).toContain('阿芸');
+
+    // 2) 沈清霜 shen_saved_from_sect: true 离宗闭环 & 背叛+缺席卷三线破囚孤身截击（零剑阁执事）
+    const shenSavedAct4: GameState = {
+      ...base,
+      act: 'act4',
+      realm: 'golden_core',
+      flags: { shen_saved_from_sect: true },
+      companions: {
+        ...base.companions,
+        shen_qingshuang: { met: true, affection: 70, stance: 'confidant', stage: 3, chronicle: [] },
+      },
+      currentSceneId: 'act4_arc_zhantian_2',
+    };
+    const shenDef = CONTENT_REGISTRY.companions.shen_qingshuang;
+    const shenSavedTitle =
+      typeof shenDef.title === 'function' ? shenDef.title(shenSavedAct4) : shenDef.title;
+    expect(shenSavedTitle).not.toContain('内门首座');
+    const zt2SavedParas = resolveParagraphs(
+      CONTENT_REGISTRY.scenes.act4_arc_zhantian_2.paragraphs,
+      shenSavedAct4
+    ).join('\n');
+    expect(zt2SavedParas).toContain('早已斩碎旧牌叛离青云');
+    expect(zt2SavedParas).not.toContain('解下腰间青云首座玉牌');
+    const act5SavedParas = resolveParagraphs(CONTENT_REGISTRY.scenes.act5_opening.paragraphs, {
+      ...shenSavedAct4,
+      act: 'act5',
+      realm: 'nascent_soul',
+    }).join('\n');
+    expect(act5SavedParas).toContain('霜梅暗印剑札');
+
+    const shenBetrayedMissedAct3: GameState = {
+      ...base,
+      act: 'act4',
+      realm: 'golden_core',
+      flags: { betrayed_shen_at_stele: true, missed_thread_act3_sect: true },
+      companions: {
+        ...base.companions,
+        shen_qingshuang: { met: true, affection: -60, stance: 'estranged', stage: 3, chronicle: [] },
+      },
+      currentSceneId: 'act4_arc_zhantian_1',
+    };
+    const zt1PrisonBreakParas = resolveParagraphs(
+      CONTENT_REGISTRY.scenes.act4_arc_zhantian_1.paragraphs,
+      shenBetrayedMissedAct3
+    ).join('\n');
+    expect(zt1PrisonBreakParas).toContain('破囚叛逃');
+    expect(zt1PrisonBreakParas).not.toContain('两名剑阁金丹执事');
+    expect(zt1PrisonBreakParas).not.toContain('随我回山');
+    const zt1ClashStep = playStep(shenBetrayedMissedAct3, 'zt1_clash_shen');
+    expect((zt1ClashStep.afterChoice.pendingTransition?.paragraphs ?? []).join('\n')).not.toContain(
+      '两名青云执事'
+    );
+
+    // 3) 卷二/三/四 slow_grind 均受 maxUsesInAct: 1 限制，绝不可无限刷年击穿长明历
+    const grindSpecs: Array<{
+      act: 'act2' | 'act3' | 'act4';
+      realm: GameState['realm'];
+      lifespanYears: number;
+      sceneId: string;
+      choiceId: string;
+    }> = [
+      {
+        act: 'act2',
+        realm: 'qi_peak',
+        lifespanYears: 130,
+        sceneId: 'act2_foundation_gate',
+        choiceId: 'found_slow_grind',
+      },
+      {
+        act: 'act3',
+        realm: 'foundation_late',
+        lifespanYears: 260,
+        sceneId: 'act3_golden_core_gate',
+        choiceId: 'core_slow_grind',
+      },
+      {
+        act: 'act4',
+        realm: 'golden_core',
+        lifespanYears: 500,
+        sceneId: 'act4_nascent_gate',
+        choiceId: 'nascent_slow_grind',
+      },
+    ];
+    for (const sp of grindSpecs) {
+      const s0: GameState = {
+        ...base,
+        act: sp.act,
+        realm: sp.realm,
+        lifespanYears: sp.lifespanYears,
+        ageMonths: 25 * 12,
+        year: 2996 + 25,
+        currentSceneId: sp.sceneId,
+      };
+      const s1 = playStep(s0, sp.choiceId).afterCommit;
+      expect(s1.currentSceneId).toBe(`${sp.act}_hub`);
+      const backAtGate: GameState = { ...s1, currentSceneId: sp.sceneId };
+      const secondTry = getResolvedChoices(
+        backAtGate,
+        CONTENT_REGISTRY.scenes[sp.sceneId],
+        CONTENT_REGISTRY
+      ).find((c) => c.id === sp.choiceId);
+      expect(secondTry?.locked).toBe(true);
+      expect(() => advanceChoice(backAtGate, sp.choiceId, CONTENT_REGISTRY)).toThrow(/locked/);
+    }
+
+    // 4) 消耗【九转延寿露】（救苏知微或大限自用）后，卷二/三/四坊市均不再刷出第二瓶
+    const usedFlagCases: Array<Record<string, boolean>> = [
+      { su_zhiwei_saved_longlife: true },
+      { longevity_dew_self_used: true },
+    ];
+    for (const usedFlags of usedFlagCases) {
+      for (const mktSceneId of ['act2_market_grand', 'act3_market', 'act4_market'] as const) {
+        const mktScene = CONTENT_REGISTRY.scenes[mktSceneId];
+        const dewOffer = mktScene.market?.relicOffers.find((r) => r.relicId === 'longevity_dew');
+        expect(dewOffer).toBeDefined();
+        expect(
+          dewOffer?.when?.({
+            ...base,
+            act: mktScene.act,
+            relics: [],
+            flags: { ...base.flags, ...usedFlags },
+          })
+        ).toBe(false);
+      }
+    }
+
+    // 5) 单周目合法集齐 12/12 天机残卷全流程实跑（卷二走血丹+古脉拿4卷，卷三免费访苏补1卷+仙盟+百宝共7卷，卷四斩天+槐阴共9卷，卷五开篇+群雄会+易物会碑拓达成 12/12）
+    let full12 = createInitialState(
+      makeProfile({
+        originId: 'herbalist',
+        openingEventIds: ['ev_charred_jade', 'ev_qingzhou_vow'],
+        daoHeartId: 'seek_truth',
+      }),
+      CONTENT_REGISTRY
+    );
+    const step12 = (id: string) => {
+      full12 = playStep(full12, id, () => 0.25).afterCommit;
+    };
+    // Act 1
+    step12('bury_respectfully');
+    step12('stay_help_suzhiwei');
+    step12('ask_guidance');
+    step12('hub1_crossroads');
+    step12('side_with_qingyun');
+    step12('hub1_ready_breakthrough');
+    step12('qi_cangming_method');
+    step12('proceed_act1_finale');
+    step12('act1_choose_qingyun');
+    // Act 2: 血丹(2 clues) + 暗桩主动开启古脉(2 clues) = 4 clues（刻意放弃剑碑线 clue_stele_gap）
+    step12('act2_qy_enter_hub');
+    step12('hub_blood_1');
+    step12('blood1_partner_xie');
+    step12('hub_blood_2');
+    step12('blood2_expose_all');
+    step12('hub2_errands');
+    step12('hub2_intel');
+    step12('hub_cross_open_vein');
+    step12('vein1_salvage_crystals');
+    step12('hub_vein_2');
+    step12('vein2_swear_with_cangming');
+    expect(full12.truthClues).not.toContain('clue_stele_gap');
+    expect(full12.truthClues.length).toBe(4);
+    step12('hub_foundation_gate');
+    step12('found_cangming_guard');
+    step12('demon_answer_defy');
+    // Act 3: 免费拜访苏知微补拿 clue_mortal_blindspot(5) + 仙盟(6) + 百宝(7)
+    step12('act3_open_survey_all');
+    step12('hub3_companion_visit');
+    step12('hub3_visit_su');
+    step12('v_su_act3_pulse_notes');
+    expect(full12.truthClues).toContain('clue_mortal_blindspot');
+    step12('hub3_sect_1');
+    step12('sect1_plan_heist');
+    step12('hub3_sect_2');
+    step12('sect2_break_vault_with_shen');
+    step12('hub3_chamber_1');
+    step12('chamber1_team_xie');
+    step12('hub3_chamber_2');
+    step12('chamber2_smash_ladder');
+    expect(full12.truthClues.length).toBe(7);
+    step12('hub3_golden_core_gate');
+    step12('core_vein_array');
+    // Act 4: 斩天(8) + 槐阴(9)
+    step12('act4_open_survey');
+    step12('hub4_zhantian_1');
+    step12('zt1_read_oath');
+    step12('zt2_rebuild_alliance');
+    step12('hub4_mortal');
+    const mortalOpts12 = getResolvedChoices(
+      full12,
+      CONTENT_REGISTRY.scenes.act4_arc_mortal_truth,
+      CONTENT_REGISTRY
+    );
+    step12(
+      mortalOpts12.some((c) => c.id === 'mortal_su_warm_promise')
+        ? 'mortal_su_warm_promise'
+        : 'mortal_copy_and_guard'
+    );
+    expect(full12.truthClues.length).toBe(9);
+    step12('hub4_commission');
+    step12('a4_comm_escort');
+    step12('hub4_nascent_gate');
+    step12('nascent_wealth_array');
+    // Act 5: 开篇 clue_furnace_cycle(10) + 群雄会 clue_gate_weakness(11) + 易物会/传讯双路径补齐 clue_stele_gap(12/12!)
+    step12('act5_open_sword_resolve');
+    step12('hub5_summit');
+    step12('summit_stealth_copy');
+    expect(full12.truthClues.length).toBe(11);
+    expect(full12.truthClues).not.toContain('clue_stele_gap');
+    const beforeStele12 = full12;
+    // 分支验证 A：裂天传讯沈清霜附寄残拓 -> 12/12
+    const parleyShen12 = playStep(
+      { ...beforeStele12, currentSceneId: 'act5_companion_parley' },
+      'parley_shen'
+    ).afterCommit;
+    expect(parleyShen12.truthClues).toContain('clue_stele_gap');
+    expect(parleyShen12.truthClues.length).toBe(12);
+    // 分支验证 B：无沈清霜羁绊时，于末法易物会耗 80 灵石向云岭旧执事暗购残拓 -> 12/12
+    const paidStelePre: GameState = {
+      ...beforeStele12,
+      spiritStones: 200,
+      companions: {
+        ...beforeStele12.companions,
+        shen_qingshuang: base.companions.shen_qingshuang,
+      },
+      currentSceneId: 'act5_market',
+    };
+    const paidStele12 = playStep(paidStelePre, 'a5_market_stele_rubbing').afterCommit;
+    expect(paidStele12.spiritStones).toBe(120);
+    expect(paidStele12.truthClues).toContain('clue_stele_gap');
+    expect(paidStele12.truthClues.length).toBe(12);
+    // 主干推进：末法易物会取回残拓并离场 -> 12/12
+    step12('hub5_market');
+    step12('a5_market_stele_rubbing');
+    step12('a5_market_leave');
+    expect(full12.truthClues).toContain('clue_stele_gap');
+    expect(full12.truthClues.length).toBe(12);
+    expect(getInvestigationProgress(full12, CONTENT_REGISTRY).totalClues).toBe(12);
+
+    // 6) 卷六【万金镇山河】真实扣灵石、【以魔吞界】拒低心境重伤白板、卷五半步自封在 bonded 道誓下锁定
+    const gildedWithDeed: GameState = {
+      ...base,
+      act: 'act6',
+      realm: 'deity_transform',
+      spiritStones: 800,
+      relics: ['spirit_vein_deed'],
+      tags: ['merchant_fame'],
+      currentSceneId: 'act6_final_choice',
+    };
+    const gildedBrokeChoices = getResolvedChoices(
+      { ...gildedWithDeed, spiritStones: 50, flags: { total_trade_profit: 300 } },
+      CONTENT_REGISTRY.scenes.act6_final_choice,
+      CONTENT_REGISTRY
+    );
+    expect(gildedBrokeChoices.find((c) => c.id === 'final_gilded_realm')?.locked).toBe(true);
+    const gildedDeedAfter = playStep(gildedWithDeed, 'final_gilded_realm').afterCommit;
+    expect(gildedDeedAfter.endingId).toBe('ending_gilded_realm');
+    expect(gildedDeedAfter.spiritStones).toBe(300);
+
+    const gildedNoDeedAfter = playStep(
+      { ...gildedWithDeed, relics: [], spiritStones: 1500 },
+      'final_gilded_realm'
+    ).afterCommit;
+    expect(gildedNoDeedAfter.spiritStones).toBe(300);
+
+    const injuredBareDemon: GameState = {
+      ...base,
+      act: 'act6',
+      realm: 'deity_transform',
+      might: 202,
+      mind: 104,
+      alignment: { righteous: -60, worldly: 0 },
+      tags: ['demonic_sovereign'],
+      flags: { deity_pure_injured: true },
+      relics: [],
+      currentSceneId: 'act6_final_choice',
+    };
+    expect(
+      getResolvedChoices(injuredBareDemon, CONTENT_REGISTRY.scenes.act6_final_choice, CONTENT_REGISTRY).find(
+        (c) => c.id === 'final_demonic_devour'
+      )?.locked
+    ).toBe(true);
+    expect(() => advanceChoice(injuredBareDemon, 'final_demonic_devour', CONTENT_REGISTRY)).toThrow(
+      /locked/
+    );
+    expect(
+      getResolvedChoices(
+        { ...injuredBareDemon, might: 220, mind: 155, relics: ['broken_sky_seal'] },
+        CONTENT_REGISTRY.scenes.act6_final_choice,
+        CONTENT_REGISTRY
+      ).find((c) => c.id === 'final_demonic_devour')?.locked
+    ).toBe(false);
+
+    const bondedVowAct5: GameState = {
+      ...base,
+      act: 'act5',
+      realm: 'nascent_soul',
+      mind: 350,
+      relics: ['mortal_hearth_talisman'],
+      truthClues: ['clue_mortal_bloodline', 'clue_furnace_cycle', 'clue_stele_gap', 'clue_vein_drain'],
+      flags: { act5_final_vow: 'bonded' },
+      currentSceneId: 'act5_deity_breakthrough',
+    };
+    expect(
+      getResolvedChoices(
+        bondedVowAct5,
+        CONTENT_REGISTRY.scenes.act5_deity_breakthrough,
+        CONTENT_REGISTRY
+      ).some((c) => c.id === 'deity_seal_earth_immortal')
+    ).toBe(false);
+
+    const earthImmortalPre: GameState = {
+      ...base,
+      act: 'act6',
+      realm: 'deity_transform',
+      lifespanYears: 2000,
+      mind: 350,
+      relics: ['mortal_hearth_talisman'],
+      truthClues: ['clue_mortal_bloodline', 'clue_furnace_cycle', 'clue_stele_gap', 'clue_vein_drain'],
+      flags: { act5_final_vow: 'earth' },
+      currentSceneId: 'act6_final_choice',
+    };
+    const earthImmortalAfter = playStep(earthImmortalPre, 'final_earth_immortal').afterCommit;
+    expect(earthImmortalAfter.endingId).toBe('ending_earth_immortal');
+    expect(earthImmortalAfter.lifespanYears).toBe(1000);
+
+    // 7) baibao_token 仅保留百宝折扣与商脉门禁，绝不再静态绕过暗网死手威慑
+    const tokenOnlyCoerce: GameState = {
+      ...base,
+      act: 'act3',
+      realm: 'foundation_early',
+      might: 60,
+      mind: 60,
+      relics: ['baibao_token'],
+      companions: {
+        ...base.companions,
+        xie_wujiu: { met: true, affection: 60, stance: 'confidant', stage: 3, chronicle: [] },
+      },
+    };
+    expect(getOvermatchProfile(tokenOnlyCoerce).deadmanSwitches).toEqual([]);
+    expect(evaluateCoercion(tokenOnlyCoerce, 'act3_tianji_goldcore').canSucceed).toBe(false);
+    expect(getRelicOfferPrice(200, 'curio', tokenOnlyCoerce)).toBe(170);
+    const explicitSwitchCoerce: GameState = {
+      ...tokenOnlyCoerce,
+      flags: { xie_deadman_switch: true },
+    };
+    expect(getOvermatchProfile(explicitSwitchCoerce).deadmanSwitches.length).toBe(1);
+    expect(evaluateCoercion(explicitSwitchCoerce, 'act3_tianji_goldcore').canSucceed).toBe(true);
   });
 });

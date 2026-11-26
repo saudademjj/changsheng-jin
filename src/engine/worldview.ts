@@ -266,7 +266,7 @@ export function getWorldClimateSnapshot(state: GameState): WorldClimateSnapshot 
     return {
       veinPercent: vein,
       veinLabel: vein >= 35 ? '九州断脉（约余三成半）' : '九州断脉（仅余三成）',
-      skyStatus: '星象微暗，仙盟频催三宗筹备“百年飞升候补”。',
+      skyStatus: '星象微暗，仙盟频催三宗遴选赴云岭秘境闭关的“百年飞升候补”。',
       societyStatus: state.flags.xie_reformed_merchant
         ? '青州断脉引发药荒，百宝斋开仓平价勉力稳住底层散修生计。'
         : '多座中阶灵矿断脉，药材丹粮飞涨，大宗与商行暗中争抢残矿。',
@@ -275,8 +275,11 @@ export function getWorldClimateSnapshot(state: GameState): WorldClimateSnapshot 
   }
   if (state.act === 'act4') {
     const vein = 18;
+    const knowsVeinCurve =
+      state.truthClues.includes('clue_zhantian_remnant') ||
+      state.truthClues.includes('clue_mortal_bloodline');
     const societyStatus = state.flags.xie_new_order_founded
-      ? '天机商行血契霸权崩塌，九州通兑公契勉力维系七十二城民心。'
+      ? '天机商行血契霸权崩塌，通兑公契勉力维系九州七十二重镇民心。'
       : state.flags.act4_war_warlord
       ? '赤阳矿谷血战惨烈，残存灵矿尽落铁腕霸主之手，诸宗人人自危。'
       : state.flags.act4_war_truce
@@ -285,7 +288,9 @@ export function getWorldClimateSnapshot(state: GameState): WorldClimateSnapshot 
     return {
       veinPercent: vein,
       veinLabel: '末法剧枯（尚余不足二成）',
-      skyStatus: '铅灰劫云终年盘踞中州，偶有细微金纹自高穹一闪而逝。',
+      skyStatus: knowsVeinCurve
+        ? '铅灰劫云终年盘踞中州，前两千五百载温养已过，九霄清棚急抽之兆日显。'
+        : '铅灰劫云终年盘踞中州，近数十载灵脉枯速陡增，偶有细微金纹自高穹一闪而逝。',
       societyStatus,
       crisisTone: 'tense',
     };
@@ -298,12 +303,12 @@ export function getWorldClimateSnapshot(state: GameState): WorldClimateSnapshot 
       veinPercent: 8,
       veinLabel: '灵脉将竭（不足一成）',
       skyStatus: knowsHarvest
-        ? '苍穹撕开万里金灰裂口，三千年收割大期已近尾声，劫钟长鸣。'
+        ? '苍穹撕开万里金灰裂口，前温养而后清棚的三千年收割大期已近尾声，灰白长生烬随风暗落。'
         : '苍穹撕开万里金灰裂口，三千年灵脉断绝大劫迫近，劫钟长鸣。',
       societyStatus: state.flags.act5_summit_done
         ? summitExposed
-          ? '天柱峰群雄会落幕，九州化神与元婴各自抉择——迎战、隐世或低眉入炉。'
-          : '天柱峰群雄会落幕，九州化神与元婴各自抉择——迎战、隐世或顺流登门。'
+          ? '天柱峰群雄会落幕，伪天门唯锁杀合道化神，留世元婴亦困于残脉归零、终生绝道之局，诸修各自抉择迎战、敛息隐世或押注仙盟。'
+          : '天柱峰群雄会落幕，天门唯引化神而地脉将绝，诸宗元婴各自抉择破关问天、敛息避劫或依附仙盟。'
         : '中小宗门成片封山散伙，各方残存老祖云集天柱残峰，等待最后答卷。',
       crisisTone: 'critical',
     };
@@ -311,8 +316,8 @@ export function getWorldClimateSnapshot(state: GameState): WorldClimateSnapshot 
   return {
     veinPercent: 4,
     veinLabel: '残脉枯竭（不足半成）',
-    skyStatus: '万丈白玉天门洞开九霄，惨白接引金光垂落九州群山。',
-    societyStatus: '天地死寂，九州苍生仰首望天，等待化神问道者给出最终回应。',
+    skyStatus: '万丈白玉天门洞开九霄，惨白接引金光垂落九州群山，唯锁神魂合道之化神。',
+    societyStatus: '天地死寂，裂穹余波压境，九州群修屏息敛气，静待绝巅问道者给出最终回应。',
     crisisTone: 'critical',
   };
 }
@@ -365,7 +370,7 @@ export function getFactionStandings(state: GameState): FactionStandingItem[] {
       ? '你与执法长老彻底翻脸，山门已将你列为剑宗大敌，唯少数年轻弟子暗自佩服。'
       : state.tags.includes('qingyun_outer')
       ? '青岚境正统剑宗，执掌三千年飞升古碑；你身佩外门名籍，受其庇护亦受其规矩所限。'
-      : '长明历来最负盛名的正道剑宗，传出七位飞升大能，禁地古碑却暗藏断代疑云。';
+      : '长明历来最负盛名的正道剑宗，明面曾出七位化神飞升大能，禁地古碑却暗藏断代疑云。';
 
   // 2. 九州仙盟
   let alStanding = actOrder <= 2 ? '远观大势' : '平辈相交';
@@ -405,7 +410,7 @@ export function getFactionStandings(state: GameState): FactionStandingItem[] {
       : '天柱峰召集残存诸老';
 
   const alSummary = state.truthClues.includes('clue_alliance_pact')
-    ? '三大宗门结成的九州最高正道同盟，以“纳贡换上界稳固界壁”为由维持百年飞升血契。'
+    ? '三大宗门结成的九州最高正道同盟，千年来以“保送秘境冲化神”为名，将百年候补暗送转运井折抵炉薪，自欺为“纳贡稳固界壁”。'
     : '统领九州各大宗门的盟主机构，维护正道秩序、统筹灵矿分配与高阶飞升盛典。';
 
   // 3. 天机商行
@@ -461,9 +466,11 @@ export function getFactionStandings(state: GameState): FactionStandingItem[] {
     : '隐退幕后 · 静候天门开启';
 
   const tjSummary = state.flags.act4_chamber_collapsed
-    ? '纵横九州三百年的神秘巨商已在七十二城公契风暴中土崩瓦解，其赤阳密录亦流落人间。'
+    ? '实为上界历代扶植的敛财外柜几经易名改换门庭、近三百年整合而成的巨商，如今已在九州七十二重镇公契风暴中土崩瓦解，其代代移交续纂的《三千年收割总录》母本亦流落人间。'
+    : state.relics.includes('ascension_ledger')
+    ? '实为上界历代扶植的敛财外柜几经易名改换门庭、近三百年整合而成的跨州巨商，暗中染指血丹及转运井，并代代移交续纂《三千年收割总录》母本。'
     : knowsTianjiPortal
-    ? '背景深不可测的跨州商行，表面经营矿脉与丹药，暗中染指血丹、转运井与上界密账。'
+    ? '近三百年整合崛起的跨州巨商，疑承袭前代神秘旧号，表面经营矿脉丹药，暗中染指血丹、转运井与上界密账。'
     : knowsTianjiDark
     ? '背景深不可测的跨州商行，表面经营矿脉与丹药，暗中却似与血丹黑市及异常矿账脱不开干系。'
     : '背景深不可测的跨州商行，掌管九州诸多灵矿与珍丹行路，行事极密，坊间莫测其深浅。';
@@ -540,14 +547,14 @@ export function getFactionStandings(state: GameState): FactionStandingItem[] {
   const ztPower = !knowsZhantian
     ? '隐匿绝渊 · 坊间偶闻只言片语'
     : state.tags.includes('sky_slayer_ally')
-    ? '四代残火重聚 · 剑指九霄'
-    : '藏身断魂绝渊 · 孤军测绘枯脉';
+    ? '四纪残火重聚 · 剑指九霄'
+    : '四度绝而复续 · 孤军测绘枯脉';
 
   const ztSummary = !knowsZhantian
     ? '传闻三千年来曾有不甘俯首的修士暗结密会，历代皆遭仙盟剿灭，至今不知虚实。'
     : knowsZhantianSeal
-    ? '长明三千年四代反抗者用血脉延续的隐秘组织，测绘出完整枯脉星图并留有【残缺锁天印】线索。'
-    : '长明三千年历代反抗者暗中延续的隐秘组织，藏身断魂绝渊，正于乱世中测绘枯脉异象。';
+    ? '长明三千年间四度绝而复续的大兴世系（四纪），凭师徒薪火代代相传，测绘出前温养后急抽的完整枯脉星图，并留有【残缺锁天印】线索。'
+    : '长明三千年间四度绝而复续的反抗世系，经师徒数辈薪火相传藏身断魂绝渊，正于乱世中测绘枯脉异象。';
 
   // 6. 青州凡尘（杏林·槐阴）
   let mtStanding = '红尘行客';
@@ -589,7 +596,7 @@ export function getFactionStandings(state: GameState): FactionStandingItem[] {
     : '杏林药庐守灯 · 静察凡尘灵潮异动';
 
   const mtSummary = state.truthClues.includes('clue_mortal_bloodline')
-    ? '彻头彻尾无灵根的凡人血脉反倒置身牧灵大网之外；杏林医典与槐阴古碑共同守着人间最后火种。'
+    ? '太古无灵纪遗脉，彻头彻尾无灵根的凡人血脉反倒置身牧灵大网之外；杏林《无灵医典》与槐阴古碑共同守着人间最后火种，亦是日后无伤剥离灵根牧种的医理基石。'
     : actOrder === 1
     ? '青州城外杏林医馆与散落村镇的凡俗百姓，远离仙门争锋，唯在岁末烟火里守着柴米与药香。'
     : '青州城外杏林医馆与散落村镇的凡俗百姓，虽无灵根法力，却在灵潮怪疫中透出奇异规律。';
@@ -690,13 +697,15 @@ export function getWorldRegions(state: GameState): WorldRegionItem[] {
     Boolean(state.flags.act4_zhantian_step1) ||
     state.completedThreads.includes('thread_act4_zhantian');
 
+  const knowsGateWeakness = state.truthClues.includes('clue_gate_weakness');
+
   return [
     {
       id: 'qinglan',
       name: '青岚城与断剑松林',
       actRange: '卷一 ~ 卷二',
       status: order <= 2 ? 'current' : 'visited',
-      desc: '外域散修云集之城，青云剑宗山门、南市灵肆与百宝暗楼皆聚于此。',
+      desc: '青州北境边城，散修云集，青云剑宗山门、南市灵肆与百宝暗楼皆聚于此。',
     },
     {
       id: 'qingzhou',
@@ -716,39 +725,48 @@ export function getWorldRegions(state: GameState): WorldRegionItem[] {
     },
     {
       id: 'yunling',
-      name: '云岭仙盟总坛',
+      name: '云州 · 云岭仙盟总坛',
       actRange: '卷三',
       status: ylStatus,
       desc:
         ylStatus === 'upcoming'
-          ? '高悬云海之上的正道总坛，三大宗门定期共议九州灵矿与仙途盛典。'
-          : '三大宗门共议九州大势与百年飞升名录之地，秘阁高悬云海之上。',
+          ? '高悬云州云海之上的正道总坛，三大宗门定期共议九州灵矿与仙途盛典。'
+          : '云州云海之上三大宗门共议九州大势与百年飞升名录之地，秘阁高悬绝顶。',
     },
     {
       id: 'battlefield',
-      name: knowsZhantianAbyss ? '长明古战场与断魂绝渊' : '长明古战场旧址',
+      name: knowsZhantianAbyss ? '玄州界 · 长明古战场与断魂绝渊' : '玄州界 · 长明古战场旧址',
       actRange: '卷三 ~ 卷四',
       status: bfStatus,
       desc:
         bfStatus === 'upcoming'
           ? '三千年前旧史语焉不详的禁忌古地，灵潮紊乱，寻常低阶修士难窥其全貌。'
           : knowsChangmingHistory && knowsZhantianAbyss
-          ? '三千年前九剑尊血战旧址，荒泽孕育养魂古木，绝渊深处潜伏斩天四代遗窟。'
+          ? '三千年前九剑尊血战、旧世护界主脉一息抽空之所；荒泽孕育养魂古木，绝渊深处潜伏斩天四纪遗窟。'
           : knowsChangmingHistory
-          ? '三千年前九剑尊血战旧址，焦土荒泽间灵潮紊乱，深处传说孕育养魂古木。'
+          ? '三千年前九剑尊血战、旧世护界主脉一息抽空之所；焦土荒泽间灵潮紊乱，深处传说孕育养魂古木。'
           : knowsZhantianAbyss
-          ? '三千年前旧战荒原与断魂绝渊所在，绝渊深处潜伏着历代斩天反抗者遗窟。'
+          ? '三千年前旧战荒原与断魂绝渊所在，绝渊深处潜伏着四度绝而复续的斩天反抗者遗窟。'
           : '三千年前旧史讳言的荒原古地，阴雾重重、残剑遍野，深处传说藏有养魂奇材与绝渊险地。',
     },
     {
       id: 'zhongzhou',
-      name: '中州七十二城与赤阳灵矿',
+      name: '中州三十六大城与赤阳灵矿',
       actRange: '卷四',
       status: zzStatus,
       desc:
         zzStatus === 'upcoming'
-          ? '九州商旅与大宗灵矿荟萃之地，七十二城财脉交错，风起云涌。'
-          : '九州最后几条大矿与财脉命脉所在，灵票崩潮与商海决战的主战场。',
+          ? '九州腹地商旅与大宗灵矿荟萃之所，中州三十六大城辐射九州七十二重镇，财脉交错、风起云涌。'
+          : '九州腹地最后几条大矿与中州三十六大城财脉所在，辐射九州七十二重镇，乃灵票崩潮及商海决战的主战场。',
+    },
+    {
+      id: 'jiuzhou_outer',
+      name: '幽沧炎澜灵诸州 · 九州外域',
+      actRange: '卷一 ~ 卷六',
+      status: order >= 5 ? 'current' : order >= 3 ? 'visited' : 'upcoming',
+      desc: knowsHuaiyinStele
+        ? '北境幽州、东海沧州、南疆炎州及澜州水镇、西陲玄州与灵州药谷，合中、青、云三州共构九州七十二重镇；幽州荒原妖兽实为上古牧者同步投下的同源“牧犬”，借边患驱迫凡俗世代依附仙门。'
+        : '除中州、青州及云州外，北境幽州苦寒多妖兽边患，东临沧州瀚海，南接炎州火脉及澜州水镇，西连玄州荒原与灵州药谷，合构九州七十二重镇版图。',
     },
     {
       id: 'tianzhu',
@@ -758,6 +776,8 @@ export function getWorldRegions(state: GameState): WorldRegionItem[] {
       desc:
         tzStatus === 'upcoming'
           ? '传说中离九霄天幕最近的上古圣峰，历代化神大能皆往此地问道。'
+          : knowsGateWeakness
+          ? '直面九霄伪天门的绝顶圣地；九州九大主灵眼经金柱连通门框凝成“天地九枢”唯一界海星标，强行跨界之耗百倍于一纪产出，内破九枢即可令下界彻底脱离上界星图。'
           : '直面苍穹金灰裂口的绝顶圣地，九州群雄会与叩问三千年天门的终极舞台。',
     },
   ];
@@ -806,7 +826,7 @@ export function getRealmLadder(
       lifespanText: '寿 240~260 载',
       minOrder: 5,
       maxOrder: 7,
-      desc: '气化灵液，御剑穿云，正式入九州棋局。',
+      desc: '气化灵液，神识外放十里，御剑穿云，正式入九州棋局。',
     },
     {
       id: 'golden_core',
@@ -814,7 +834,7 @@ export function getRealmLadder(
       lifespanText: '寿 500 载',
       minOrder: 8,
       maxOrder: 8,
-      desc: '灵液凝丹，足以左右一州宗门与商路风云。',
+      desc: '灵液凝丹，神识覆及百里，足以左右一州宗门与商路风云。',
     },
     {
       id: 'nascent_soul',
@@ -822,7 +842,7 @@ export function getRealmLadder(
       lifespanText: '寿 1000 载',
       minOrder: 9,
       maxOrder: 9,
-      desc: '碎丹成婴，立于下界之巅，直面三千年天裂大劫。',
+      desc: '碎丹成婴，神识笼罩五百里，立于下界之巅，直面三千年天裂大劫。',
     },
     {
       id: 'deity_transform',
@@ -830,7 +850,7 @@ export function getRealmLadder(
       lifespanText: '寿 2000 载',
       minOrder: 10,
       maxOrder: 10,
-      desc: '神魂合道，接引金光落顶，直面三千年无归音之九霄天门。',
+      desc: '神魂合道，神识横绝千里，接引金光落顶，直面三千年无归音之九霄天门。',
     },
   ];
 
@@ -987,10 +1007,10 @@ export function getActTransitionEcho(
     const inv = getInvestigationProgress(state, registry);
     bullets.push(`天机勘验：已集得 ${inv.totalClues} / 12 卷实证（${inv.tierLabel}）。`);
     if (state.tags.includes('sky_slayer_ally')) {
-      bullets.push('绝渊同盟：你已重聚斩天会四代残火，成为反抗三千年收割大局的核心旗手。');
+      bullets.push('绝渊同盟：你已重聚斩天会四纪残火，成为反抗三千年收割大局的核心旗手。');
     }
     if (state.flags.xie_new_order_founded) {
-      bullets.push('商道新序：九州通兑公契击溃了天机商行商脉霸权，七十二城民心皆向公盟。');
+      bullets.push('商道新序：九州通兑公契击溃了天机商行商脉霸权，九州七十二重镇民心皆向公盟。');
     } else if (state.flags.act4_war_warlord) {
       bullets.push('铁血霸权：赤阳灵矿尽归你掌中，九州诸宗对你既敬且惧。');
     }
@@ -1003,14 +1023,32 @@ export function getActTransitionEcho(
     } else if (isCompanionSealed(state, 'cang_ming')) {
       bullets.push('断玉归寂：焦黑断玉已永沉荒泽，再无古魂低语。');
     }
+    const suAutoPassedInAct5 =
+      getAgeYears(state.ageMonths) >= 75 &&
+      Boolean(state.flags.su_zhiwei_saved_longlife) &&
+      !state.flags.act4_mortal_truth_found;
+    if (
+      state.companions.su_zhiwei.met &&
+      state.daoPartnerId !== 'su_zhiwei' &&
+      (Boolean(state.flags.su_auto_passed_act5_opening) ||
+        (suAutoPassedInAct5 &&
+          !state.flags.su_zhiwei_passed &&
+          !state.companions.su_zhiwei.deceased))
+    ) {
+      bullets.push('故人追思：闭关岁月漫长，苏知微已于槐阴药庐安然辞世，医典交由阿芸一脉传灯。');
+    }
     if (
       state.daoPartnerId &&
       (isCompanionDeceased(state, state.daoPartnerId) ||
+        (state.daoPartnerId === 'su_zhiwei' && suAutoPassedInAct5) ||
         isActiveDaoPartner(state, state.daoPartnerId))
     ) {
       const pName = registry.companions[state.daoPartnerId].name;
+      const isPartnerDead =
+        isCompanionDeceased(state, state.daoPartnerId) ||
+        (state.daoPartnerId === 'su_zhiwei' && suAutoPassedInAct5);
       bullets.push(
-        isCompanionDeceased(state, state.daoPartnerId)
+        isPartnerDead
           ? `此生道侣：故去道侣【${pName}】的遗灯长明心底。`
           : state.daoPartnerId === 'su_zhiwei'
           ? `此生道侣：凡尘道侣【${pName}】仍守青州药庐一灯，与你遥隔山河、心念相系。`

@@ -197,6 +197,15 @@ const GLOBAL_FORBIDDEN_TERMS: Array<{ term: string; reason: string }> = [
   { term: '隐藏结局', reason: '第四面墙词（统一用终局/隐世归宿）' },
   { term: '宿缘回收', reason: '第四面墙词' },
   { term: '伏笔回收', reason: '第四面墙词' },
+  // 世界观终审已清零的地理/物价/法则/断代穿帮词
+  { term: '江南茶楼', reason: '域外现实地名穿帮（九州南境统一用「南岭水镇茶楼」）' },
+  { term: '山下青州城', reason: '空间地理穿帮（中州天柱峰山下不得出现青州城）' },
+  { term: '半张破障符', reason: '灵石购买力穿帮（破障符市价逾六十灵石，一石远不足买半张）' },
+  { term: '一文钱能买三捆', reason: '清心草百万倍物价穿帮' },
+  { term: '中州七十二城', reason: '州域城数穿帮（统一为中州三十六大城 / 九州七十二重镇）' },
+  { term: '斩天会四代遗录', reason: '旧断代称谓穿帮（已统一为「斩天会四纪遗录」）' },
+  { term: '一网收尽', reason: '天门收割边界穿帮（伪天门主炉严格唯锁化神）' },
+  { term: '长明之前三万年的古篆', reason: '古碑预知长明纪年穿帮' },
   // 专名与境界错别字
   { term: '沈青霜', reason: '人物名错字（应为「沈清霜」）' },
   { term: '谢无救', reason: '人物名错字（应为「谢无咎」）' },
@@ -281,6 +290,13 @@ const ZONE_A_FORBIDDEN_TERMS: Array<{ term: string; reason: string }> = [
   { term: '抄底', reason: '现代股市术语' },
   { term: '套现', reason: '现代金融术语' },
   { term: '性价比', reason: '现代消费术语' },
+  { term: '坏账', reason: '现代财务黑话（沉浸正文宜用死账/烂账）' },
+  { term: '沉没成本', reason: '现代经济学词' },
+  { term: '挤兑', reason: '现代金融术语' },
+  { term: '船票', reason: '现代交通隐喻' },
+  { term: '豁免券', reason: '现代票券词' },
+  { term: '积分', reason: '现代网游/消费词' },
+  { term: '成色分级', reason: '第四面墙设计词' },
   { term: '触发', reason: '第四面墙系统词' },
   { term: '好感度', reason: '第四面墙系统词' },
   { term: '进度条', reason: '第四面墙系统词' },
@@ -1226,10 +1242,15 @@ describe('《长生烬》三层防线 · Layer 2A 高危正交状态矩阵不变
       '灵根牧种',
       '九剑尊血战',
       '斩天四代',
+      '斩天四纪',
       '兄长失踪',
       '转运井',
       '长明大劫',
       '三千年收割',
+      '长生烬',
+      '太古无灵纪',
+      '上古牧灵初纪',
+      '避劫灰符',
     ];
     const issues: string[] = [];
 
@@ -1335,10 +1356,13 @@ describe('《长生烬》三层防线 · Layer 2A 高危正交状态矩阵不变
       '兄长失踪',
       '九剑尊血战',
       '斩天四代',
+      '斩天四纪',
       '牧灵骗局',
       '收割大期',
       '天门九枢',
       '地底枯脉逆阵',
+      '长生烬',
+      '避劫灰符',
     ];
     for (const act of ['act3', 'act4'] as ActId[]) {
       const zeroState = { ...stateForScene(base, act, `${act}_hub`), truthClues: [] };
@@ -2247,6 +2271,127 @@ describe('《长生烬》三层防线 · Layer 2A 高危正交状态矩阵不变
     );
     expect(stripTags(marketHtml)).toContain('本坊奇物亦已悉数易主');
     expect(stripTags(marketHtml)).not.toContain('可径直选购下方稀缺奇物');
+  });
+
+  it('L2A-10 世界观终审跨卷因果守卫：九枢与无灵知识封漏、苏/沈/苍状态机及终局善后闭环', () => {
+    const base = createInitialState(makeProfile(), CONTENT_REGISTRY);
+
+    // 1. 未获 clue_gate_weakness 时，卷五风雪夜、枢纽收尾与卷六全程严禁凭空预知「九枢 / 东侧三座阵眼」
+    const noPivotState: GameState = {
+      ...stateForScene(base, 'act5', 'act5_arc_final_eve'),
+      tags: ['cangming_reborn'],
+      truthClues: [
+        'clue_stele_gap',
+        'clue_vein_drain',
+        'clue_blood_pill_dust',
+        'clue_mortal_blindspot',
+        'clue_changming_night',
+        'clue_furnace_cycle',
+      ],
+      companions: {
+        ...base.companions,
+        shen_qingshuang: { met: true, affection: 80, stance: 'bonded', stage: 4, chronicle: [] },
+        xie_wujiu: { met: true, affection: 80, stance: 'bonded', stage: 4, chronicle: [] },
+        cang_ming: { met: true, affection: 80, stance: 'bonded', stage: 4, chronicle: [] },
+      },
+    };
+    const eveNoPivotText = resolveParagraphs(
+      CONTENT_REGISTRY.scenes.act5_arc_final_eve.paragraphs,
+      noPivotState
+    ).join('\n');
+    expect(eveNoPivotText).not.toContain('九枢');
+    expect(eveNoPivotText).not.toContain('东侧三座阵眼');
+
+    const gateNoPivot: GameState = {
+      ...noPivotState,
+      act: 'act6',
+      realm: 'deity_transform',
+      currentSceneId: 'act6_sky_gate',
+    };
+    const skyGateNoPivotText = resolveParagraphs(
+      CONTENT_REGISTRY.scenes.act6_sky_gate.paragraphs,
+      gateNoPivot
+    ).join('\n');
+    expect(skyGateNoPivotText).not.toContain('九枢');
+    expect(skyGateNoPivotText).not.toContain('外围阵眼');
+
+    const finalNoPivot: GameState = { ...gateNoPivot, currentSceneId: 'act6_final_choice' };
+    const finalNoPivotParas = resolveParagraphs(
+      CONTENT_REGISTRY.scenes.act6_final_choice.paragraphs,
+      finalNoPivot
+    ).join('\n');
+    expect(finalNoPivotParas).not.toContain('九道逆枢');
+    const finalNoPivotChoices = getResolvedChoices(
+      finalNoPivot,
+      CONTENT_REGISTRY.scenes.act6_final_choice,
+      CONTENT_REGISTRY
+    );
+    expect(finalNoPivotChoices.some((c) => c.id === 'final_sever_sky_bonded')).toBe(false);
+    expect(finalNoPivotChoices.some((c) => c.id === 'final_sever_sky_solo')).toBe(false);
+
+    // 2. 无无灵线索且无【无灵归尘印】时，卷五半步自封改用「枯石龟息秘术」，绝不凭空施展「无灵盲区」
+    const noBlindspotBreakthrough: GameState = {
+      ...stateForScene(base, 'act5', 'act5_deity_breakthrough'),
+      mind: 320,
+      relics: [],
+      truthClues: [
+        'clue_stele_gap',
+        'clue_vein_drain',
+        'clue_blood_pill_dust',
+        'clue_tianji_portal',
+      ],
+    };
+    const btParas = resolveParagraphs(
+      CONTENT_REGISTRY.scenes.act5_deity_breakthrough.paragraphs,
+      noBlindspotBreakthrough
+    ).join('\n');
+    expect(btParas).toContain('枯石龟息秘术');
+    expect(btParas).not.toContain('无灵盲区');
+    const sealChoice = getResolvedChoices(
+      noBlindspotBreakthrough,
+      CONTENT_REGISTRY.scenes.act5_deity_breakthrough,
+      CONTENT_REGISTRY
+    ).find((c) => c.id === 'deity_seal_earth_immortal');
+    expect(sealChoice?.label).toContain('枯石龟息秘术');
+    expect(sealChoice?.label).not.toContain('无灵盲区');
+
+    // 3. 复生苍溟在【红尘散仙】走专属挑衅斩剑遁入北溟分支；断玉道侣伴其他挚友破天门时有专属悼词
+    const hiddenRebornCm: GameState = {
+      ...stateForScene(base, 'act6', 'act6_final_choice'),
+      tags: ['cangming_reborn'],
+      companions: {
+        ...base.companions,
+        cang_ming: { met: true, affection: 80, stance: 'bonded', stage: 4, chronicle: [] },
+      },
+    };
+    const hiddenEp = CONTENT_REGISTRY.endings.ending_earth_immortal
+      .epilogue(hiddenRebornCm)
+      .join('\n');
+    expect(hiddenEp).toContain('挑衅剑虹');
+    expect(hiddenEp).toContain('北溟绝域');
+    expect(hiddenEp).not.toContain('替过往散修指点剑道');
+
+    const jadePartnerWithShen: GameState = {
+      ...stateForScene(base, 'act6', 'act6_final_choice'),
+      daoPartnerId: 'cang_ming',
+      companions: {
+        ...base.companions,
+        shen_qingshuang: { met: true, affection: 85, stance: 'bonded', stage: 4, chronicle: [] },
+        cang_ming: {
+          met: true,
+          affection: 95,
+          stance: 'bonded',
+          bondType: 'dao_partner',
+          stage: 4,
+          chronicle: [],
+        },
+      },
+    };
+    const bondedMournEp = CONTENT_REGISTRY.endings.ending_sever_sky_bonded
+      .epilogue(jadePartnerWithShen)
+      .join('\n');
+    expect(bondedMournEp).toContain('断玉道侣却已在最后一剑里碎作青萤');
+    expect(bondedMournEp).not.toContain('始终不曾松开彼此的手');
   });
 });
 

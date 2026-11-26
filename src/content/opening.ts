@@ -39,7 +39,7 @@ export const ORIGINS: OriginDefinition[] = [
     id: 'orphan',
     name: '青岚坊市孤儿',
     epithet: '檐下听雨，市中窥心',
-    desc: '在青岚南市鱼龙混杂的屋檐下长大，替丹铺跑过腿，给散修望过风。你很早便明白，这世上比丹药还难买的是真话。',
+    desc: '在青岚南市鱼龙混杂的屋檐下长大，替丹铺跑过腿，给暗巷散修望过风，十年摸爬滚打才从刀口牙缝里攒下八十块下品灵石的入道本钱。你很早便明白，这世上比丹药还难买的是真话。',
     startSceneId: 'act1_start_orphan',
     initialStones: 80,
     initialMight: 8,

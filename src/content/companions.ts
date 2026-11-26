@@ -1,8 +1,13 @@
 import { CompanionDefinition, CompanionId, CompanionStance, GameState } from '../engine/types';
+import { getAgeYears } from '../engine/time';
 import { isSuZhiweiDeceased } from '../engine/systems';
 
 function shenLeftSect(s: GameState): boolean {
-  return Boolean(s.flags.shen_left_sect || s.flags.shen_freed_from_sect);
+  return Boolean(
+    s.flags.shen_left_sect ||
+      s.flags.shen_freed_from_sect ||
+      s.flags.shen_saved_from_sect
+  );
 }
 
 export function isSuZhiweiAlive(s: GameState): boolean {
@@ -86,16 +91,18 @@ export const COMPANIONS: Record<CompanionId, CompanionDefinition> = {
         s.companions.xie_wujiu.stance === 'estranged' ||
         s.companions.xie_wujiu.stance === 'rival'
       ) {
-        return '玄铁折扇彻底对你合拢。这位最讲究信义与账本的商道奇才，将你划入了此生最贵的一笔坏账。';
+        return '玄铁折扇彻底对你合拢。这位最讲究信义与账本的商道奇才，将你划入了此生最沉的一笔死账。';
       }
       if (s.flags.act4_chamber_collapsed) {
         return s.flags.xie_new_order_founded
-          ? '撕毁独霸总章、颁行九州通兑公契的仁商魁首。兄长旧恨已见天日，他仍摇着那柄玄铁扇，笑看七十二城民心归向。'
+          ? '撕毁独霸总章、颁行九州通兑公契的仁商魁首。兄长旧恨已见天日，他仍摇着那柄玄铁扇，笑看九州七十二重镇民心归向。'
           : '以百年家底击溃天机商行、执掌九州暗网总账的商道魁首。兄长旧恨已见天日，他仍摇着那柄玄铁扇，笑看世间灵石起落。';
+      }
+      if (s.truthClues.includes('clue_tianji_portal')) {
+        return '常摇一柄玄铁折扇，笑意温和，话锋总落回筹码与盈亏。暗港深井残佩揭穿了当年城头白日入光的傀儡幻影，得知兄长真身早化炉灰后，他执算盘的手愈发冷定。';
       }
       if (
         s.truthClues.includes('clue_blood_pill_dust') ||
-        s.truthClues.includes('clue_tianji_portal') ||
         Boolean(s.flags.blood_arc_step1)
       ) {
         return '常摇一柄玄铁折扇，笑意温和，话锋总落回筹码与盈亏。他暗中散尽万金追查上界古物与天机商行黑账，只因昔年修至金丹巅峰的兄长在一场「飞升接引」后音讯全无。';
@@ -117,7 +124,7 @@ export const COMPANIONS: Record<CompanionId, CompanionDefinition> = {
         return '红尘结发道侣 · 杏林医者';
       }
       if (
-        s.flags.su_zhiwei_saved_longlife &&
+        (s.flags.su_zhiwei_saved_longlife || getAgeYears(s.ageMonths) >= 52) &&
         (s.act === 'act4' || s.act === 'act5' || s.act === 'act6')
       ) {
         return '青州银发凡医';

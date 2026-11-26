@@ -10,6 +10,7 @@ import {
   getRemainingMajorArcSlots,
   hasDeepBond,
   isMajorArcMissed,
+  isSuZhiweiDeceased,
 } from '../engine/systems';
 
 type NascentGuardianId = 'cang_ming' | 'shen_qingshuang' | 'xie_wujiu';
@@ -32,18 +33,45 @@ function isShenHostile(state: GameState): boolean {
   return st === 'estranged' || st === 'rival';
 }
 
+function hasShenLeftSect(state: GameState): boolean {
+  return Boolean(
+    state.flags.shen_left_sect ||
+      state.flags.shen_freed_from_sect ||
+      state.flags.shen_saved_from_sect
+  );
+}
+
+function isShenBetrayedPrisonBreak(state: GameState): boolean {
+  return Boolean(
+    state.flags.betrayed_shen_at_stele &&
+      (isMajorArcMissed(state, 'act3', 'thread_act3_sect') ||
+        !state.completedThreads.includes('thread_act3_sect'))
+  );
+}
+
 function isXieHostile(state: GameState): boolean {
   const st = state.companions.xie_wujiu.stance;
   return st === 'estranged' || st === 'rival';
 }
 
+function isSuHostileOrCold(state: GameState): boolean {
+  const st = state.companions.su_zhiwei.stance;
+  return (
+    st === 'estranged' ||
+    st === 'rival' ||
+    Boolean(state.flags.left_qingzhou_coldly && state.companions.su_zhiwei.affection < 10)
+  );
+}
+
 function isSuAliveAndHealthyInAct4(state: GameState): boolean {
+  const age = getAgeYears(state.ageMonths);
   return Boolean(
     state.companions.su_zhiwei.met &&
-      state.flags.su_zhiwei_saved_longlife &&
+      !isSuHostileOrCold(state) &&
+      !isSuZhiweiDeceased(state) &&
       !state.flags.su_zhiwei_passed &&
       !state.companions.su_zhiwei.deceased &&
-      getAgeYears(state.ageMonths) < 75
+      (state.flags.su_zhiwei_saved_longlife ? age < 75 : age <= 68)
   );
 }
 
@@ -51,7 +79,9 @@ function isSuFarewellInAct4(state: GameState): boolean {
   const age = getAgeYears(state.ageMonths);
   return Boolean(
     state.companions.su_zhiwei.met &&
-      state.flags.su_zhiwei_saved_longlife &&
+      !isSuHostileOrCold(state) &&
+      !isSuZhiweiDeceased(state) &&
+      Boolean(state.flags.su_zhiwei_saved_longlife) &&
       !state.flags.su_zhiwei_passed &&
       !state.companions.su_zhiwei.deceased &&
       age >= 75 &&
@@ -160,7 +190,7 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
       },
       {
         when: (s) => s.tags.includes('tianji_nemesis'),
-        text: '当年在青州百宝总账堂掀翻天机商行灵灰黑账后，商行对你的暗花已翻到三千上品灵石。只是你结丹出关那夜，三名在山外潜伏的暗哨隔着十里便被丹威震吐了血，商行转而收紧了沿途丹药与矿材的暗路。',
+        text: '当年在青州百宝总账堂掀翻天机商行灵灰黑账后，商行对你的暗花已翻到折合三千灵石的上品灵晶。只是你结丹出关那夜，三名在山外潜伏的暗哨隔着十里便被丹威震吐了血，商行转而收紧了沿途丹药与矿材的暗路。',
       },
       {
         when: (s) => s.tags.includes('mortal_keeper'),
@@ -173,7 +203,7 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
           !isCangMingBlocked(s),
         text: '储物囊中那截【千年养魂木】近日愈发温热，隔着衣襟与焦黑断玉遥遥呼应。苍溟沉默了整整一季，昨晚终于在识海里开口，说六十年一遇的寒渊雷潮将至，重塑肉身的契机就在今岁。',
       },
-      '石案摆着三封急报。北麓绝渊现出「斩天会」遗窟，中州赤阳灵矿战火将起，青州旧药农更捎来口信，说槐阴深山冲出一通长明之前的无灵古碑。九州劫波已至。先落哪一子，全凭你定。',
+      '石案摆着三封急报。北麓绝渊现出「斩天会」遗窟，中州赤阳灵矿战火将起，青州旧药农更捎来口信，说槐阴深山冲出一通镌着太古无灵古篆的旧碑。九州劫波已至。先落哪一子，全凭你定。',
     ],
     choices: [
       {
@@ -275,13 +305,13 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
         } else {
           const missed: string[] = [];
           if (isMajorArcMissed(s, 'act4', 'thread_act4_zhantian')) {
-            missed.push('断魂绝渊斩天残老终究耗尽余寿，四代遗窟随崖崩彻底掩埋');
+            missed.push('断魂绝渊斩天残老终究耗尽余寿，四纪遗窟随崖崩彻底掩埋');
           }
           if (isMajorArcMissed(s, 'act4', 'thread_act4_war')) {
             missed.push('中州赤阳灵矿大战落幕，百宝斋与天机商行在惨烈拉锯中两败俱伤');
           }
           if (isMajorArcMissed(s, 'act4', 'thread_act4_mortal')) {
-            missed.push('青州深山槐阴古村封谷避世，那通史前无灵古碑终究隐没于群山雾霭');
+            missed.push('青州深山槐阴古村封谷避世，那通无灵古碑终究隐没于群山雾霭');
           }
           if (missed.length > 0) {
             lines.push(`【分身乏术 · 世局余波】${missed.join('；')}。`);
@@ -289,7 +319,7 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
         }
         if (s.activeThreads.includes('thread_act4_zhantian')) {
           lines.push(
-            '【绝渊秘窟】断魂绝渊深处传出斩天会残部的暗号，三千年反抗者的血脉遗录与锁天遗藏尽在崖底。'
+            '【绝渊秘窟】断魂绝渊深处传出斩天会残部的暗号，三千年四纪传薪的遗录与锁天遗藏尽在崖底。'
           );
         }
         if (
@@ -312,10 +342,10 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
         if (s.activeThreads.includes('thread_act4_mortal')) {
           lines.push(
             isSuAliveAndHealthyInAct4(s)
-              ? '【无灵古碑】青州老药农传来口信，苏知微近日往槐阴深山采药时，于村祠后发现一通长明之前的无灵古碑，正候你一见。'
+              ? '【无灵古碑】青州老药农传来口信，苏知微近日往槐阴深山采药校典时，于村祠后发现一通镌着太古秘篆的无灵古碑，正候你一见。'
               : isSuFarewellInAct4(s)
-              ? '【无灵古碑】青州老药农传来口信，苏知微晚年迁居槐阴深山，在祠后发现了长明之前的古碑，正候你一见。'
-              : '【无灵古碑】青州深山槐阴村绝灵无脉、凡人安居，村后出土的史前石碑或藏着灵根与天幕的真正来历。'
+              ? '【无灵古碑】青州老药农传来口信，苏知微晚年迁居槐阴深山，在祠后发现了镌着太古秘篆的无灵古碑，正候你一见。'
+              : '【无灵古碑】青州深山槐阴村绝灵无脉、凡人安居，村后出土的无灵古碑或藏着灵根与天幕的真正来历。'
           );
         }
         return lines.length > 0
@@ -329,8 +359,8 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
       {
         id: 'hub4_zhantian_1',
         category: 'story',
-        label: '深入断魂绝渊秘窟，探寻「斩天会」四代遗录与锁天遗藏',
-        subtext: '北麓断魂绝渊藏着三千年四代反抗者的血刻与星图（须占本卷一席九州大势）。',
+        label: '深入断魂绝渊秘窟，探寻「斩天会」四纪遗录与锁天遗藏',
+        subtext: '北麓断魂绝渊藏着三千年四纪反抗者的血刻与星图（须占本卷一席九州大势）。',
         visible: (s) =>
           s.activeThreads.includes('thread_act4_zhantian') &&
           canCommitMajorArc(s, 'act4', 'thread_act4_zhantian'),
@@ -383,8 +413,10 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
         category: 'story',
         label: (s) =>
           isSuAliveAndHealthyInAct4(s) || isSuFarewellInAct4(s)
-            ? '动身前往青州槐阴古村，拜读无灵古碑并见银发故人苏知微'
-            : '探访青州槐阴无灵古村，查验长明纪元之前的无灵古碑',
+            ? getAgeYears(s.ageMonths) >= 55
+              ? '动身前往青州槐阴古村，拜读无灵古碑并见银发故人苏知微'
+              : '动身前往青州槐阴古村，拜读无灵古碑并重见故人苏知微'
+            : '探访青州槐阴无灵古村，查验镌有太古秘篆的无灵古碑',
         subtext: '青州南端群峰褶皱里，藏着一通从未落入高天视线的无灵古碑（须占本卷一席九州大势）。',
         visible: (s) =>
           s.activeThreads.includes('thread_act4_mortal') &&
@@ -428,7 +460,10 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
         id: 'hub4_market',
         category: 'market',
         label: '踏入九州黑市秘拍，查验牌价、倒卖灵砂琥珀或竞购结婴重宝',
-        subtext: '可购【太阴育婴莲】【残缺锁天印】【千年养魂木】【九转延寿露】，随时可入殿查价。',
+        subtext: (s) =>
+          s.flags.su_zhiwei_saved_longlife || s.flags.longevity_dew_self_used
+            ? '可购【太阴育婴莲】【残缺锁天印】【千年养魂木】等稀缺奇珍，随时可入殿查价。'
+            : '可购【太阴育婴莲】【残缺锁天印】【千年养魂木】【九转延寿露】，随时可入殿查价。',
         insightTags: ['九州黑市', '自由入殿不耗光阴'],
         next: 'act4_market',
       },
@@ -513,7 +548,7 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
         id: 'hub4_visit_shen',
         category: 'companion',
         label: (s) =>
-          Boolean(s.flags.shen_left_sect || s.flags.shen_freed_from_sect)
+          hasShenLeftSect(s)
             ? '按传讯剑符赴北麓松崖剑庐约见沈清霜，切磋剑道并互通近况'
             : '按传讯剑符赴松岭石亭约见沈清霜，切磋剑道并互通近况',
         visible: (s) =>
@@ -587,10 +622,13 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
       {
         id: 'hub4_visit_su',
         category: 'companion',
-        label: (s) =>
-          s.flags.act4_mortal_truth_found
-            ? '抽身赴青州槐阴茅舍，探望两鬓斑白的故人苏知微'
-            : '抽身南下青州杏林医馆，探望两鬓斑白的故人苏知微',
+        label: (s) => {
+          const suDesc =
+            getAgeYears(s.ageMonths) >= 50 ? '两鬓斑白的故人苏知微' : '杏林故人苏知微';
+          return s.flags.act4_mortal_truth_found
+            ? `抽身赴青州槐阴茅舍，探望${suDesc}`
+            : `抽身南下青州杏林医馆，探望${suDesc}`;
+        },
         visible: (s) => isSuAliveAndHealthyInAct4(s),
         requirement: {
           maxUsesInAct: {
@@ -708,7 +746,7 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
     subtitle: '自主谋划 · 金丹行迹',
     location: '中州灵盟玉榜 · 暗金悬单与北境风烟',
     paragraphs: [
-      '如今你已是九州屈指可数的金丹人物，寻常坊市杂活早已无人敢递到案前。玉榜最上层挂着几道暗金悬红，动辄数百上品灵石。若无心接单，亦可御剑巡游末法劫区，体察世态百相。',
+      '如今你已是九州屈指可数的金丹人物，寻常坊市杂活早已无人敢递到案前。玉榜最上层挂着几道暗金悬红，动辄折合数百灵石的上品灵晶。若无心接单，亦可御剑巡游末法劫区，体察世态百相。',
     ],
     choices: [
       {
@@ -892,7 +930,10 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
           relicId: 'longevity_dew',
           basePrice: 340,
           category: 'elixir',
-          when: (s) => !s.relics.includes('longevity_dew'),
+          when: (s) =>
+            !s.relics.includes('longevity_dew') &&
+            !s.flags.su_zhiwei_saved_longlife &&
+            !s.flags.longevity_dew_self_used,
         },
       ],
     },
@@ -928,21 +969,21 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
     ],
   },
 
-  // ==================== 大势一：绝渊秘窟 · 斩天会四代遗录 ====================
+  // ==================== 大势一：绝渊秘窟 · 斩天会四纪遗录 ====================
   act4_arc_zhantian_1: {
     id: 'act4_arc_zhantian_1',
     act: 'act4',
     title: '绝渊石壁',
-    subtitle: '阶段大势 · 斩天会四代遗录（上）',
+    subtitle: '阶段大势 · 斩天会四纪遗录（上）',
     location: '北麓断魂绝渊 · 地下石窟',
     paragraphs: [
       '顺着密函所指的古老暗记，你御剑潜入断魂绝渊三百丈深处。石壁湿滑生苔，穿过一道以血灵阵掩护的水帘，豁然现出一座开凿于绝壁腹中的宽阔石窟。',
-      '三丈石壁刻满名姓，分作四列。初代七名金丹推演倒流阵，寿尽坐化窟中。二代遭同门出卖，分舵焚为白地。三代百余人饮了天机商行投毒的灵井，无一生还。到了长明两千七百九十年，四代只剩几名隐姓残老，守着半幅星图枯坐至死。四代人。无一善终。',
+      '三丈石壁刻满名姓，按三千年间四度绝而复续的大兴世系分作四纪。初纪七名金丹自长明初劫后结社推演倒流阵，历经数辈传灯终因寿尽断绝；二纪重燃旧火，却遭同门出卖，分舵焚为白地；三纪百余志士饮了上界外围商号投毒的灵井，一夕覆没。及至长明两千七百九十年，四纪再遭重创后退守绝渊，经师徒数辈暗中传薪，如今只剩顾苍松、陆七娘等末辈残老苦守此窟六十余载。三千年，四纪传薪，几无善终。',
       {
         when: (s) =>
           s.companions.shen_qingshuang.met && !isShenHostile(s),
         text: (s) =>
-          Boolean(s.flags.shen_left_sect || s.flags.shen_freed_from_sect)
+          hasShenLeftSect(s)
             ? '石窟第三盏长明灯下，一袭素衣静立如雪。沈清霜按你先前飞鹤约定的时辰提前半日抵此，指尖拂过石壁上几位青云宗叛门前辈的名姓，声音低沉：“昔年在青云禁阁翻旧档时便拼出过这处方位。原来三千年里，始终有人醒着。”'
             : '石窟第三盏长明灯下，一袭白衣静立如雪。沈清霜按你先前飞鹤约定的时辰提前半日抵此，指尖拂过石壁上几位青云宗叛门前辈的名姓，声音低沉：“我翻遍青云禁阁旧档才拼出这处方位。原来三千年里，始终有人醒着。”',
       },
@@ -950,11 +991,13 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
         when: (s) =>
           s.companions.shen_qingshuang.met && isShenHostile(s),
         text: (s) =>
-          s.companions.shen_qingshuang.stance === 'estranged' &&
-          !s.flags.shen_left_sect &&
-          !s.flags.fought_shen_at_vault
+          isShenBetrayedPrisonBreak(s)
+            ? '剑气骤劈水帘！一袭染尘素衣踏水而入，沈清霜腕间犹留震断禁神玄锁的血痕——昔年飞升崖遭你出卖后，她被强押入云岭待祭候补之列，近岁趁九州灵脉大乱破囚叛逃，一路循迹孤身截杀至此。霜锋遥指你眉心：“飞升崖的旧账未清，你竟敢再来染指斩天会遗物？今日休想活着带走半件！”'
+            : s.companions.shen_qingshuang.stance === 'estranged' &&
+              !hasShenLeftSect(s) &&
+              !s.flags.fought_shen_at_vault
             ? '剑气骤劈水帘！沈清霜一袭白袍踏水而入，身后跟着两名剑阁金丹执事，霜剑遥指你眉心：“果真是你。斩天会遗物落入外人手中只会招来天幕提前清剿，交出来。”寒芒抵喉。“随我回山。”'
-            : '你正读到第四代遗刻，窟口水帘忽被一道森冷剑气劈开。沈清霜独自提剑步入廊影，霜锋遥指你眉心：“旧账未清，你又盯上斩天会遗物？今日别想轻易把内窟重宝带走。”',
+            : '你正读到第四纪末辈遗刻，窟口水帘忽被一道森冷剑气劈开。沈清霜独自提剑步入廊影，霜锋遥指你眉心：“旧账未清，你又盯上斩天会遗物？今日别想轻易把内窟重宝带走。”',
       },
       {
         when: (s) => !s.companions.shen_qingshuang.met,
@@ -971,9 +1014,9 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
     choices: [
       {
         id: 'zt1_read_oath',
-        label: '细读四代血刻，亮明你掌握的天门铁证以求坦诚相见',
+        label: '细读四纪血刻，亮明你掌握的天门铁证以求坦诚相见',
         subtext: '以真诚与见识打动残部守窟老人，开启内窟铁坛。',
-        insightTags: ['得真相【斩天会四代遗录】', '心境与正道声望'],
+        insightTags: ['得真相【斩天会四纪遗录】', '心境与正道声望'],
         effect: (s) => {
           const hasDust = s.relics.includes('heaven_dust_shard');
           return {
@@ -991,11 +1034,11 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
                     shen_qingshuang: {
                       markSeen: true,
                       affectionDelta: 10,
-                      chronicle: '与你同入断魂绝渊拜读四代斩天遗录，彼此决心愈发坚定。',
+                      chronicle: '与你同入断魂绝渊拜读四纪斩天遗录，彼此决心愈发坚定。',
                     },
                   }
                 : undefined,
-            logSummary: '深入断魂绝渊，亲眼得见【斩天会四代遗录】。',
+            logSummary: '深入断魂绝渊，亲眼得见【斩天会四纪遗录】。',
           };
         },
         outcome: [
@@ -1016,23 +1059,23 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
           (s) =>
             s.companions.shen_qingshuang.met && isShenHostile(s)
               ? '窟口的沈清霜听见你道出的桩桩铁证，剑锋停顿了一瞬。顾苍松趁机启动水帘隔阵将外廊暂阻，低声急催你速入内窟铁坛决断遗宝归属。'
-              : '陆七娘抹去眼角浑浊泪意，亲手推开石墙后的暗门：“第四代守了近三百年，总算等来一位金丹明眼人。请随我进内窟，看看前辈们拼死护下的最后家底。”',
+              : '陆七娘抹去眼角浑浊泪意，亲手推开石墙后的暗门：“自长明两千七百九十年四纪前辈退守绝渊，师徒数辈接力传薪近三百载，轮到老身与苍松也已苦守六十余载，总算等来一位金丹明眼人。请随我进内窟，看看历纪前辈拼死护下的最后家底。”',
         ],
         outcomeContinueLabel: '踏入内窟 · 直面斩天铁坛',
         next: 'act4_arc_zhantian_2',
       },
       {
         id: 'zt1_probe_array',
-        label: '不动声色听完四代往事，暗中记清石窟禁制与秘宝藏位',
+        label: '不动声色听完四纪往事，暗中记清石窟禁制与秘宝藏位',
         subtext: '冷静审度局势，无论稍后结盟还是夺宝都占得先机。',
-        insightTags: ['得真相【斩天会四代遗录】', '修为与城府'],
+        insightTags: ['得真相【斩天会四纪遗录】', '修为与城府'],
         effect: {
           might: 8,
           mind: 6,
           renown: 4,
           addTruthClues: ['clue_zhantian_remnant'],
           setFlags: { act4_zhantian_step1: true, act4_zhantian_mapped: true },
-          logSummary: '于断魂绝渊记下【斩天会四代遗录】与石窟禁制薄弱处。',
+          logSummary: '于断魂绝渊记下【斩天会四纪遗录】与石窟禁制薄弱处。',
         },
         outcome: [
           '你一面顺着残老的问话展示金丹修为与天机见识，一面以灵识细细丈量整座地窟的灵流走向。三处阵眼的死穴与内窟锁机很快在你心底勾勒分明。',
@@ -1050,7 +1093,7 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
         visible: (s) =>
           s.companions.shen_qingshuang.met && isShenHostile(s),
         subtext: '昔日陌路，今朝以金丹剑锋分高下。',
-        insightTags: ['沈清霜敌对交锋', '得真相【斩天会四代遗录】', '修为大涨'],
+        insightTags: ['沈清霜敌对交锋', '得真相【斩天会四纪遗录】', '修为大涨'],
         effect: (s) => ({
           might: 12,
           renown: 10,
@@ -1068,12 +1111,13 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
               chronicle: '断魂绝渊外廊与你金丹交锋，剑气崩碎水帘，旧怨愈深。',
             },
           },
-          logSummary: '于断魂绝渊外击退沈清霜阻截，强入内窟并阅尽【斩天会四代遗录】。',
+          logSummary: '于断魂绝渊外击退沈清霜阻截，强入内窟并阅尽【斩天会四纪遗录】。',
         }),
         outcome: [
           (s) =>
             s.companions.shen_qingshuang.stance === 'estranged' &&
-            !s.flags.shen_left_sect &&
+            !hasShenLeftSect(s) &&
+            !isShenBetrayedPrisonBreak(s) &&
             !s.flags.fought_shen_at_vault
               ? '霜蓝与赤金两道金丹剑气在石廊轰然相撞，碎石如雨崩落。你横剑震开两名青云执事的合击阵势，又硬接沈清霜三记冰霜绝剑，借反震之力破入内窟石门。'
               : '霜蓝与赤金两道金丹剑气在石廊轰然相撞，碎石如雨崩落。你在狭廊中硬接沈清霜三记冰霜绝剑，剑脊擦出满廊寒火，趁势震退她半步破入内窟石门。',
@@ -1089,7 +1133,7 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
     id: 'act4_arc_zhantian_2',
     act: 'act4',
     title: '第五代之约',
-    subtitle: '阶段大势 · 斩天会四代遗录（终章）',
+    subtitle: '阶段大势 · 斩天会四纪遗录（终章）',
     location: '断魂绝渊 · 铁坛内窟',
     checkpoint: true,
     checkpointLabel: '卷四 · 斩天铁坛抉择',
@@ -1101,9 +1145,10 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
         const swordDesc = s.relics.includes('severing_sword_embryo')
           ? '一座足以共鸣淬炼你随身剑胚的太古剑坛残阵'
           : '一柄尚未刻铭却寒气刺骨的【斩天剑胚】';
-        return `内窟中央立着一座玄铁祭坛，坛上静静陈列着三件用命守下来的遗物：${sealDesc}、${swordDesc}，还有一卷标出九州十七处暗桩的皮纸星图。`;
+        return `内窟中央立着一座玄铁祭坛，坛上静静陈列着三件用命守下来的遗物：${sealDesc}、${swordDesc}，还有一卷标出九州十七处暗桩及九座锁天主枢的皮纸星图。`;
       },
-      '顾苍松剧烈咳嗽了两声，指节发白地扶着坛沿：“前三代人都想干干净净地推翻天门，结果初代死在寿尽，二代三代折在叛徒与毒井，轮到我们第四代只剩残老枯守。如今你站在坛前，我只问一句，你打算拿这些东西做什么？”',
+      '星图边缘以朱砂密注着四纪前辈推演出的界海铁律：混沌界海浩渺无垠，上界真仙若强破罡风真身跨界，所耗仙元百倍于一界产出，必得不偿失；高天唯赖下界九大主灵眼连同伪门门框铸成的「天地九枢」充作界海唯一星标，方能隔界垂光、低耗抽髓。倘有一日自内斩碎九枢，此界便自上界星图彻底抹去——这亦是高天宁借仙盟与商行牧守三千载、亦绝不真身降临的命门所在。',
+      '顾苍松剧烈咳嗽了两声，指节发白地扶着坛沿：“前三代人都想干干净净地推翻天门，结果初代死在寿尽，二代三代折在叛徒与毒井，轮到我们第四代末辈只剩残老枯守六十余载。如今你站在坛前，我只问一句，你打算拿这些东西做什么？”',
       {
         when: (s) => Boolean(s.flags.act4_zhantian_mapped),
         text: '你方才沿途默记下的三处阵眼死穴此刻尽收眼底，连铁坛底座暗藏的锁机位置也无所遁形，无论盟约还是强夺皆已占得先机。',
@@ -1114,7 +1159,7 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
           s.companions.shen_qingshuang.stance !== 'estranged' &&
           s.companions.shen_qingshuang.stance !== 'rival',
         text: (s) =>
-          Boolean(s.flags.shen_left_sect || s.flags.shen_freed_from_sect)
+          hasShenLeftSect(s)
             ? '早已斩碎旧牌叛离青云的沈清霜按剑立于铁坛旁，素白衣袂沾着绝渊湿雾，神色前所未有地笃定：“青云长老阁又向天门递了新一轮贡单。你若愿立第五代斩天盟，我的剑便为你守住后背。”'
             : '费尽周折避开长老阁耳目脱身而来的沈清霜解下腰间青云首座玉牌，轻轻放在铁坛边沿。她抬眸看你，神色前所未有地笃定：“青云长老阁已向天门递了新一轮贡单。从今日起，我不再是青云首座。你若愿立第五代斩天盟，我的剑便为你守住后背。”',
       },
@@ -1123,7 +1168,7 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
           s.companions.shen_qingshuang.met &&
           (s.companions.shen_qingshuang.stance === 'estranged' ||
             s.companions.shen_qingshuang.stance === 'rival'),
-        text: '石门轰然洞开，沈清霜孤身步入内窟，霜剑滴着血珠。她扫过墙上四代死者的名字，嗓音绷紧：“锁天残印与剑胚牵动天机，若你拿它们去逐私欲、称魔尊，下界只会死得更快。今日我绝不退让。”',
+        text: '石门轰然洞开，沈清霜孤身步入内窟，霜剑滴着血珠。她扫过墙上四纪死者的名字，嗓音绷紧：“锁天残印与剑胚牵动天机，若你拿它们去逐私欲、称魔尊，下界只会死得更快。今日我绝不退让。”',
       },
     ],
     choices: [
@@ -1139,8 +1184,8 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
             : s.companions.shen_qingshuang.met &&
               s.companions.shen_qingshuang.stance !== 'estranged' &&
               s.companions.shen_qingshuang.stance !== 'rival'
-            ? '继承四代遗志，凝聚九州反抗散修，与沈清霜立下同盟重誓。'
-            : '继承四代遗志，收拢九州十七处反抗暗桩与坛上锁天遗宝。',
+            ? '继承四纪遗志，凝聚九州反抗散修，与沈清霜立下同盟重誓。'
+            : '继承四纪遗志，收拢九州十七处反抗暗桩与坛上锁天遗宝。',
         requirement: {
           custom: (s) => {
             if (s.tags.includes('alliance_envoy') && !s.tags.includes('sect_rebel')) {
@@ -1154,7 +1199,7 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
             if (s.tags.includes('demonic_sovereign') && s.alignment.righteous <= -30) {
               return {
                 ok: false,
-                reason: '魔煞过重（正气≤-30），四代斩天残老绝不肯将火种托付魔尊',
+                reason: '魔煞过重（正气≤-30），四纪斩天残老绝不肯将火种托付魔尊',
               };
             }
             return { ok: true };
@@ -1208,7 +1253,7 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
                         : 'confidant',
                     setStage: 4,
                     chronicle:
-                      s.tags.includes('sect_rebel') || s.flags.shen_left_sect
+                      s.tags.includes('sect_rebel') || hasShenLeftSect(s)
                         ? '断魂绝渊铁坛前与你共立第五代斩天同盟，以叛宗霜剑相托到底。'
                         : '断魂绝渊铁坛前褪去青云旧袍，与你共立第五代斩天同盟，以剑相托。',
                   },
@@ -1224,7 +1269,7 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
               : undefined,
             logSummary: brokeEnvoy
               ? '于断魂绝渊当众震碎仙盟客卿印，重建第五代斩天同盟，承接斩天遗宝。'
-              : '于断魂绝渊重建第五代斩天同盟，承接斩天遗宝与四代反抗暗网。',
+              : '于断魂绝渊重建第五代斩天同盟，承接斩天遗宝与四纪反抗暗网。',
           };
         },
         outcome: [
@@ -1238,8 +1283,8 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
                 ? '【残缺锁天印】与九州暗桩星图'
                 : '【残缺锁天印】【斩天剑胚】与九州暗桩星图';
             return s.flags.zt2_had_sword
-              ? `你割指沥血，一滴淡金丹血坠落铁坛。四代残壁如感旧志，坛上古阵与你佩携的【斩天剑胚】同声轰鸣，积年寒锈寸寸剥落，剑芒越发凛冽。顾苍松与陆七娘相视而笑，双双敛衽屈膝，双手奉上${giftPhrase}。`
-              : `你割指沥血，一滴淡金丹血坠落铁坛。四代残壁如感旧志，整座幽窟骤起苍茫剑鸣，经久不绝。顾苍松与陆七娘相视而笑，双双敛衽屈膝，双手奉上${giftPhrase}。`;
+              ? `你割指沥血，一滴淡金丹血坠落铁坛。四纪残壁如感旧志，坛上古阵与你佩携的【斩天剑胚】同声轰鸣，积年寒锈寸寸剥落，剑芒越发凛冽。顾苍松与陆七娘相视而笑，双双敛衽屈膝，双手奉上${giftPhrase}。`
+              : `你割指沥血，一滴淡金丹血坠落铁坛。四纪残壁如感旧志，整座幽窟骤起苍茫剑鸣，经久不绝。顾苍松与陆七娘相视而笑，双双敛衽屈膝，双手奉上${giftPhrase}。`;
           },
           (s) =>
             s.flags.zt2_shen_was_ally
@@ -1258,7 +1303,7 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
         subtext: (s) =>
           s.companions.shen_qingshuang.met
             ? '以铁血霸道收割全部遗产，此举必令正气大损，并与沈清霜彻底决裂。'
-            : '不愿被四代悲情规矩捆住手脚，以铁血霸道收割全部遗产。',
+            : '不愿被四纪悲情规矩捆住手脚，以铁血霸道收割全部遗产。',
         insightTags: (s) => [
           '得命格【吞煞魔尊】',
           '得锁天印与灵石',
@@ -1306,8 +1351,8 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
         outcome: [
           (s) =>
             s.flags.zt2_had_seal
-              ? `“四代人讲仁义讲死了三千年，如今还想拿空话套住我？”你袖袍一卷，霸道金丹威压瞬间碾碎顾苍松的护身阵盘，将坛上残核嵌入怀中原有的锁天印，顺手把暗格里${s.flags.act4_zhantian_mapped ? '六百二十块' : '五百六十块'}上品灵石席卷一空。`
-              : '“四代人讲仁义讲死了三千年，如今还想拿空话套住我？”你袖袍一卷，霸道金丹威压瞬间碾碎顾苍松的护身阵盘，将【残缺锁天印】连同坛下暗格里的上品灵石尽数收入囊中。',
+              ? `“四纪人讲仁义讲死了三千年，如今还想拿空话套住我？”你袖袍一卷，霸道金丹威压瞬间碾碎顾苍松的护身阵盘，将坛上残核嵌入怀中原有的锁天印，顺手把暗格里折合${s.flags.act4_zhantian_mapped ? '六百二十' : '五百六十'}灵石的上品灵晶席卷一空。`
+              : `“四纪人讲仁义讲死了三千年，如今还想拿空话套住我？”你袖袍一卷，霸道金丹威压瞬间碾碎顾苍松的护身阵盘，将【残缺锁天印】连同坛下暗格里折合${s.flags.act4_zhantian_mapped ? '三百二十' : '二百六十'}灵石的上品灵晶尽数收入囊中。`,
           (s) =>
             s.companions.shen_qingshuang.met
               ? '沈清霜怒极出剑，漫天霜华在你身前炸开，却被你借锁天印余威生生震退三丈。她抹去唇角血迹，目光冷得像绝壁玄冰：“{{name}}，你与高天之上那些掠夺者已无区别。他日再见，不死不休。”'
@@ -1370,13 +1415,13 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
           (s) => {
             const payout = s.flags.zt2_broker_amount === 600 ? '六百' : '三百';
             if (s.flags.zt2_broker_with_shen) {
-              return `三日后暗驿验契，同来的沈清霜按着剑柄眉峰微蹙：“把斩天暗桩交给商贾，靠得住吗？”谢无咎合起抄本，拨出${payout}块上品灵石推到案前，摇扇笑答：“沈姑娘放心，这笔保命账我谢无咎比谁都怕赔本。往后斩天会再不会穷死在山沟里。”沈清霜默然片刻，终究微微颔首。`;
+              return `三日后暗驿验契，同来的沈清霜按着剑柄眉峰微蹙：“把斩天暗桩交给商贾，靠得住吗？”谢无咎合起抄本，拨出折合${payout}灵石的上品灵晶推到案前，摇扇笑答：“沈姑娘放心，这笔保命账我谢无咎比谁都怕赔本。往后斩天会再不会穷死在山沟里。”沈清霜默然片刻，终究微微颔首。`;
             }
             const shenHostileNote =
               s.companions.shen_qingshuang.met && isShenHostile(s)
                 ? '离开绝渊前，挡在窟口的沈清霜听清你签下的是供养残部之契而非独吞霸约，冷眸微动，终未出剑便转身没入苍雾。'
                 : '';
-            return `${shenHostileNote}三日后，谢无咎亲自在暗驿验过抄本，摇着折扇笑得眉眼舒展，当场拨出${payout}块上品灵石作你的暗股红利：“这笔买卖做得太漂亮。往后斩天会再不会穷死在山沟里了。”`;
+            return `${shenHostileNote}三日后，谢无咎亲自在暗驿验过抄本，摇着折扇笑得眉眼舒展，当场拨出折合${payout}灵石的上品灵晶作你的暗股红利：“这笔买卖做得太漂亮。往后斩天会再不会穷死在山沟里了。”`;
           },
         ],
         outcomeContinueLabel: '收妥暗契 · 返回别院',
@@ -1500,7 +1545,7 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
           logSummary: '掷重金并耗五载金丹元气，于寒渊古潭替苍溟硬凝真身。',
         },
         outcome: [
-          '四百五十块上品灵石在潭畔碎成灵雾，你咬破舌尖，引出一缕精纯金丹本源化作金线，硬生生在狂暴天雷里替那缕残魂缝合筋骨！雷鸣彻夜不绝，你数度气血翻涌几乎昏厥，仍死死钉在阵眼未退半步。',
+          '折合四百五十灵石的上品灵晶在潭畔碎成灵雾，你咬破舌尖，引出一缕精纯金丹本源化作金线，硬生生在狂暴天雷里替那缕残魂缝合筋骨！雷鸣彻夜不绝，你数度气血翻涌几乎昏厥，仍死死钉在阵眼未退半步。',
           '黎明破晓时，苍溟一身玄青古袍踏水而出，伸手一把拉住摇摇欲坠的你。他盯着你苍白的脸色，向来毒舌的剑尊难得没哼出嘲讽，只沉声甩下一句：“别真把自己耗废在半路上，省得外头宵小上门渔利。这五年，你的山门本座替你盯着。”',
         ],
         outcomeContinueLabel: '休养五载元气 · 重回局中',
@@ -1552,16 +1597,24 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
     subtitle: '阶段大势 · 九州商序问天（上）',
     location: '中州前线 · 百宝总号议事堂',
     paragraphs: [
-      '中州赤阳灵矿外围已连燃七日战火。灵脉接连干涸后，比宗门厮杀更致命的危机正席卷中州七十二城——灵石旧制彻底倾颓！大宗停发外门俸禄，街市灵票兑付大乱，天机商行竟趁乱推出骇人听闻的“灵根质押血契”：买不起丹药的散修只要按血印签契，便可预支灵石，代价是修至金丹元婴后肉身与道果全归天机调遣！',
-      '百宝总号顶楼的议事堂里却安静得听得见窗外风声。长案一侧摆着足以击穿天机灵票契信的百宝百年现银，另一侧则摊着一卷百宝长老们连夜拟好的《九州灵矿独霸总章》——只要明夜天机商行倒下，百宝斋便能顺理成章独霸天下最后几条矿脉、坐收万倍暴利。',
+      '中州赤阳灵矿外围已连燃七日战火。灵脉接连干涸后，比宗门厮杀更致命的危机正席卷中州三十六大城乃至九州七十二重镇——灵石旧制彻底倾颓！大宗停发外门俸禄，街市灵票兑付大乱，天机商行竟趁乱强推骇人听闻的“灵根质押血契”：买不起丹药的散修只要按血印签契，便可预支掺有灰白异尘的催境丹石；凡三载未偿倍息或半途坐化者，即刻抽走一身灵根精血，或炼作眉贴灰符的天机伪丹死士，或径投地下转运井充作炉薪！',
+      (s) =>
+        isMajorArcMissed(s, 'act3', 'thread_act3_chamber') ||
+        Boolean(s.flags.missed_thread_act3_chamber)
+          ? '百宝总号顶楼的议事堂里却安静得听得见窗外风声。昔年青州商变百宝痛失半数矿权，谢无咎近年狠心变卖历代暗网祖产、孤注一掷联合三十六商帮方才凑出长案一侧这批实存矿田地契与保命丹粮底仓；另一侧则摊着一卷各房长老连夜逼签的《九州灵矿独霸总章》——只要明夜天机商行倒下，大房长老便要顺势独吞天下最后几条残矿、把这笔血本翻上百倍。'
+          : '百宝总号顶楼的议事堂里却安静得听得见窗外风声。长案一侧摆着百宝斋联动三十六商帮筹集的实存矿田地契与保命丹粮底仓，另一侧则摊着一卷百宝长老们连夜拟好的《九州灵矿独霸总章》——只要明夜天机商行倒下，百宝斋便能顺理成章独霸天下最后几条矿脉、坐收百倍暴利。',
       {
         when: (s) => s.companions.xie_wujiu.met && !isXieHostile(s),
         text: (s) => {
-          const pastLine = s.flags.xie_reformed_merchant
-            ? '从青岚暗市走到中州总号，我斗垮了叛徒、查清了兄长死因，眼看明夜就能把天机商行连根拔起。'
-            : s.truthClues.includes('clue_tianji_portal')
-            ? '兄长死因既已水落石出，这些年我整顿百宝旧部、稳住分号暗网，眼看明夜就能把天机商行连根拔起。'
-            : '从青岚暗市走到中州总号，这些年我整顿百宝旧部、查清天机商行诸多黑账，眼看明夜就能将其连根拔起。';
+          const pastLine =
+            isMajorArcMissed(s, 'act3', 'thread_act3_chamber') ||
+            Boolean(s.flags.missed_thread_act3_chamber)
+              ? '昔年青州商变百宝折损过半，这些年我变卖暗网祖产、凭一身重金堆就的金丹后期阵器底蕴联合三十六商帮凑齐底仓，总算熬到明夜能把天机商行连根拔起。'
+              : s.flags.xie_reformed_merchant
+              ? '从青岚暗市走到中州总号，我斗垮了叛徒、查清了兄长死因，这些年更以阵器修为坐镇总号，眼看明夜就能把天机商行连根拔起。'
+              : s.truthClues.includes('clue_tianji_portal')
+              ? '兄长死因既已水落石出，这些年我整顿百宝旧部、稳住分号暗网，眼看明夜就能把天机商行连根拔起。'
+              : '从青岚暗市走到中州总号，这些年我整顿百宝旧部、查清天机商行诸多黑账，眼看明夜就能将其连根拔起。';
           return `谢无咎第一次没有碰算盘。他站在窗前望着街市里跪在天机商行门口按血印的散修，背脊绷得笔直，转过身苦笑一声：“{{name}}，${pastLine}可看着案上这份《独霸总章》，我忽然浑身发冷——等天机垮了，百宝斋坐上那张独霸九州灵脉的椅子，不出五十年，我谢无咎岂不就成了下一个天机商行？”`;
         },
       },
@@ -1571,16 +1624,20 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
       },
       {
         when: (s) => !s.companions.xie_wujiu.met,
-        text: '你按百宝总号金丹秘邀步入议事堂，玄衣执扇的百宝魁首谢无咎起身一礼：“久仰{{honorific}}金丹威名。眼下灵票倾颓、天机商行借血契收割散修，正道宗门亦在赤阳矿谷打红了眼。明夜九州财脉必易其主——是立公盟定新序、居中分矿，还是铁腕吞并，想听听{{honorific}}的高见。”',
+        text: (s) =>
+          isMajorArcMissed(s, 'act3', 'thread_act3_chamber') ||
+          Boolean(s.flags.missed_thread_act3_chamber)
+            ? '你按百宝总号金丹秘邀步入议事堂，玄衣执扇的百宝魁首谢无咎收敛一身金丹后期阵器灵息起身一礼：“久仰{{honorific}}金丹威名。谢某近年变卖暗网祖产、孤注一掷联合三十六商帮方才凑齐底仓。眼下天机商行借血契抽髓炼尸，明夜九州财脉必易其主——是立公盟定新序、居中分矿，还是铁腕吞并，想听听{{honorific}}的高见。”'
+            : '你按百宝总号金丹秘邀步入议事堂，玄衣执扇的百宝魁首谢无咎收敛一身金丹后期阵器灵息起身一礼：“久仰{{honorific}}金丹威名。眼下灵票倾颓、天机商行借血契抽炼散修，正道宗门亦在赤阳矿谷打红了眼。明夜九州财脉必易其主——是立公盟定新序、居中分矿，还是铁腕吞并，想听听{{honorific}}的高见。”',
       },
-      '门外探子同时递来两封急信：正道两大宗门的副掌教愿奉【太阴育婴莲】请你出面调停止战；赤阳西麓亦有商行叛逃账房暗递密报，称记录历代飞升去向的【三千年收割总录】正藏在赤阳行营铁匣之内！',
+      '门外探子同时递来两封急信：正道两大宗门的副掌教愿奉【太阴育婴莲】请你出面调停止战；赤阳西麓亦有商行叛逃账房暗递密报——天机商行实乃上界每隔数百年换壳易名的敛财外柜，近三百载方并号改称「天机」，其中州总执事沈砚舟同青州大管事陆衡师出同脉，正为凑足血契炉薪以求上界赐下免入大炉、留任下一纪元的「避劫灰符」而疯狂催逼；而历代外柜移交续纂的母本【三千年收割总录】，今夜便锁在沈砚舟坐镇的赤阳行营铁匣之内！',
     ],
     choices: [
       {
         id: 'war1_audit_ledger',
         label: '劝谢无咎撕碎《独霸总章》，彻夜共拟【九州通兑公契】并锁定赤阳行营总录',
         visible: (s) => !isXieHostile(s),
-        subtext: '打破一家独霸魔咒，联合三十六家中小商帮废除灵根血契、重构九州公平商序。',
+        subtext: '打破一家独霸魔咒，以实存矿田挂钩保命丹粮限额兑付，并联络反水宗门直取总录。',
         insightTags: ['谢无咎商道问心', '以商立序', '心境与声望大涨'],
         effect: {
           mind: 10,
@@ -1598,7 +1655,7 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
           logSummary: '于中州百宝总号与谢无咎共拟【九州通兑公契】，立意废除灵根血契并夺取收割总录。',
         },
         outcome: [
-          '“旧衙门一倒，新坐上去的人照样磨刀，只因那张椅子还在。”你提笔划掉《独霸总章》上所有独霸条文，与谢无咎彻夜拟出【九州通兑公契】——百宝斋交出三成矿权入公仓，与三十六城商帮共保散修灵石平价通兑，彻底断绝灵根血契的活路！',
+          '“旧衙门一倒，新坐上去的人照样磨刀，只因那张椅子还在。”你提笔划掉《独霸总章》上所有独霸条文，同谢无咎彻夜拟出【九州通兑公契】——以百宝斋及中州三十六大城实存灵矿药田作抵入公仓，不作无底虚兑，而直抵散修保命丹粮实物、行限额阶梯兑付，彻底断绝灵根血契的活路；同时密联赤阳战区早对血契寒心的反水宗门，约定明夜里应外合突袭天机总号行营！',
           '谢无咎长笑一声，将碎纸抛入窗外夜风，眉间多年阴郁一扫而空：“这辈子算过无数盈亏，唯独这一笔‘散权立信’的买卖做得最敞亮。明夜赤阳谷，咱们去把那卷【三千年收割总录】抢出来晒在阳光底下！”',
         ],
         outcomeContinueLabel: '怀揣公契出堂 · 奔赴决战之夜',
@@ -1663,14 +1720,14 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
     act: 'act4',
     title: '以商立序',
     subtitle: '卷四 · 九州商序问天（终章）',
-    location: '中州七十二城与赤阳灵矿 · 烽火彻夜',
+    location: '中州三十六大城与赤阳灵矿 · 烽火彻夜',
     checkpoint: true,
     checkpointLabel: '卷四 · 九州商序终局',
     paragraphs: [
-      '丑时鼓响，中州七十二城暗流沸腾！城内百宝总号与三十六家中小商帮的平价现银已列阵待发，街头百姓正翘首期盼有人出面焚毁天机商行强推的“灵根质押血契”；而城外赤阳矿谷战火未歇，天机商行三百年的商脉霸权正悬于今夜一线！',
+      '丑时鼓响，中州三十六大城延及九州七十二重镇暗流沸腾！城内百宝总号偕三十六家商帮已备妥实存灵矿药田作抵的保命丹粮及阶梯兑银，街头百姓正翘首期盼有人出面焚毁天机商行抽髓炼尸的“灵根质押血契”；而城外赤阳矿谷战火未歇——这上界每隔数百年换壳易名、近三百载方并号为「天机」的历代敛财外柜，连同中州总执事沈砚舟妄图凑足炉薪换取上界「避劫灰符」留任下一纪元的毒计，正悬于今夜一线！',
       (s) =>
         s.flags.act4_war_intel === 'xie'
-          ? '城外三十里，赤阳行营鼓角大乱。你与谢无咎昨夜拟定的九州通兑公契只差一声号令即可颁行七十二城，而城外那口锁着【三千年收割总录】的玄铁行营车正趁乱欲遁！'
+          ? '城外三十里，赤阳行营鼓角大乱。你同谢无咎昨夜拟定的九州通兑公契只差一声号令即可颁行九州七十二重镇，暗中联络的反水宗门亦已列阵合围，而沈砚舟押护那口锁着历代移交母本【三千年收割总录】的玄铁行营车正趁乱欲遁！'
           : s.flags.act4_war_intel === 'truce'
           ? '城外三十里，赤阳灵矿火光冲天。昨夜与你密谈过的正道及商行特使已在阵前亮出白旗信箭，只等你这位金丹中间人拍板落锤。'
           : '城外三十里，赤阳灵矿火光冲天，正道宗门与商行守军正如你先前勘察的那般油尽灯枯。风暴中心，整座九州的财脉与矿权此刻全悬于你的一念之间。',
@@ -1715,11 +1772,11 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
           logSummary: '联手谢无咎颁行九州通兑公契击溃天机血契，截获铁证【三千年收割总录】与三百四十灵石。',
         }),
         outcome: [
-          '公契号令既出，七十二城三十六商帮齐开库门平价兑付真灵石，当街焚毁灵根血契；天机商行三百年商脉霸权一夕倾颓。丹剑凌空而下，赤阳行营玄铁车应锋剖裂。守车二金丹遥见大势已去，遂弃匣奔亡。谢无咎自断辕间拾得【三千年收割总录】，以血丝缀成。展卷视之，三千载飞升诸修入炉年月、灵灰折算悉录其上，而其兄名姓，赫然在列。',
+          '公契号令既出，中州三十六大城联动九州七十二重镇齐开公仓，以实存灵矿药田作抵，按限额阶梯兑付保命丹粮与真灵石，当街焚尽灵根血契；赤阳战区反水宗门同时倒戈突袭天机总号行营，三百年换壳商脉一夕倾颓！丹剑凌空而下，赤阳行营玄铁车应锋剖裂。总执事沈砚舟怀揣半枚未及催动的「避劫灰符」欲护匣突围，被你一剑震碎护身阵器，同随行金丹遥见大势已去，遂弃匣奔亡。谢无咎自断辕间拾得那部历代上界外柜移交续纂的母本【三千年收割总录】，以血丝缀成。展卷视之，三千载飞升诸修入炉年月、长生烬灵灰折算悉录其上，而其兄名姓，赫然在列。',
           '细雨入残营，烽烟渐息；三十里外，中州城头却灯火如昼，皆废契之民彻夜燃烛相庆。谢无咎阖卷奉于你手，敛玄铁扇，注视良久，淡然道：“私仇已雪，旧霸已倾。谢某幸未效旧主之恶，再以血契役人。{{name}}，自此以往，任凭苍天设局算计，人间这一卷公账，我自替你守之。”',
         ],
         outcomeContinueLabel: '携血录与公盟之信 · 步出烽火',
-        bridgeNote: '九州通兑公契颁行七十二城，天机商行彻底倾覆，【三千年收割总录】已入你囊中。',
+        bridgeNote: '九州通兑公契颁行中州三十六大城与九州七十二重镇，天机商行倾覆，【三千年收割总录】已入你囊中。',
         next: 'act4_hub',
       },
       {
@@ -1810,8 +1867,8 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
           '战火将歇未歇的一刻，你如惊雷裂空般直扑赤阳西麓！两支早已被连日厮杀榨干灵力的守军根本挡不住全盛金丹的雷霆铁腕，不到半个时辰便溃散奔逃。',
           (s) =>
             s.companions.xie_wujiu.met
-              ? '你接管两座残矿、搜出三百六十块上品灵石与血迹斑斑的【三千年收割总录】。归途掠过乱市，谢无咎正立在散落满街的公契榜文前，见你经过重重合拢玄铁折扇，冷笑出声：“好一个金丹煞星。这笔百年旧账，我记在心口上了。”'
-              : '你亲手接管两座尚余丰厚灵石的残矿，洗劫三百六十块上品灵石，又从商行随军密匣中搜出那卷血迹斑斑的【三千年收割总录】。自此中州坊间提起你的名号，无人不称一声乱世煞星。',
+              ? '你接管两座残矿、搜出折合三百六十灵石的上品灵晶与血迹斑斑的【三千年收割总录】。归途掠过乱市，谢无咎正立在散落满街的公契榜文前，见你经过重重合拢玄铁折扇，冷笑出声：“好一个金丹煞星。这笔百年旧账，我记在心口上了。”'
+              : '你亲手接管两座尚余丰厚灵石的残矿，洗劫折合三百六十灵石的上品灵晶，又从商行随军密匣中搜出那卷血迹斑斑的【三千年收割总录】。自此中州坊间提起你的名号，无人不称一声乱世煞星。',
         ],
         outcomeContinueLabel: '清点战利品 · 凯旋回峰',
         bridgeNote: '你趁乱横扫赤阳残矿、夺走收割总录，九州各大宗门对你的魔威忌惮万分。',
@@ -1829,61 +1886,85 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
     location: '青州深山 · 槐阴无灵村',
     paragraphs: [
       '风忽然软了。顺着青州旧医札穿过百里枯黄死寂的断脉山脊，一迈过群峰褶皱里的槐阴村山坳，井水甘冽，檐下垂满饱满的干玉米与艾草，全未受外界灵脉崩塌牵连。',
-      '泥墙下露出半截青灰石碑。毫无灵息。正因这彻头彻尾的凡石凡胎，三千年来高天巡检九州的阵眼从未扫见过它半分，碑面却以长明之前三万年的古篆刻着一段被抹尽的真相：',
-      '碑文极朴素。长明之前三万年，世人本无灵根，顺四时而生，终百岁而安。直到天外牧者降临，把灵根像草种般播进血脉，借灵气催熟，三千年一割。唯有全无灵根的凡人不在天幕眼中，仍是天地原本的自由身。',
+      '泥墙下露出半截青灰石碑，毫无灵息。正因这彻头彻尾的凡石凡胎，三千年来高天巡检九州的阵眼从未扫见过它半分。此碑上半截系三万年前遗落的原石，下半截则是槐阴无灵先民于长明初劫之后，以代代秘传三万年的太古无灵古篆续刻而成的惊世史纲：',
+      '碑文极朴素，却揭破三段被抹尽的岁月——太古无灵纪，世人本无灵根，顺四时而作，终百岁而安；及至上古牧灵初纪，天外牧者初临，将灵根如草种播进凡血粗放散牧，更并投凶顽妖兽充作「牧犬」袭扰边关，驱使凡俗世代依附仙门、源源献出灵童；待到长明元年，上界仙庭亦陷大道衰朽、并无真长生，登仙叛徒遂替上界落下锁天大阵，前两千五百年温养催熟，末百年九枢齐开、急抽清棚，历代化神元神入炉熬药后排回下界的炉渣余灰，名曰「长生烬」。碑阴末行更记明：天外真身强渡界海所耗百倍于一界产出，彼辈唯凭下界九枢充作界海唯一星标隔空虹吸；唯有全无灵根的凡人不在天幕眼中，仍是天地原本的自由身。',
       {
         when: (s) => isSuAliveAndHealthyInAct4(s) || isSuFarewellInAct4(s),
         text: (s) => {
-          const span = getAgeYears(s.ageMonths) >= 50 ? '数十载过去' : '十余载过去';
-          return isSuAliveAndHealthyInAct4(s)
-            ? `石碑旁茅舍飘着陈皮药香。两鬓斑白的苏知微正倚窗分拣晒草，徒弟阿芸端来一碗热药粥。${span}你容颜如旧，她眼角刻满细纹，神智却清朗如昔：“延寿露替我多挣了这些年，《无灵医典》与药田都已交妥阿芸。守着这块碑等了数载，总算见你读懂它了。”`
-            : `石碑旁的茅舍里，炭炉烧得极慢。小壶里的陈皮汤滚过一轮，又静下去。满头银丝的苏知微披着旧棉被倚在窗边，听见柴扉轻响，缓缓睁开了眼。${span}，你立在门光里，容颜一如往昔；她却已枯瘦得像一盏油尽的灯，看清是你，眼角仍极轻地弯了一下：“延寿露多赊来的二十余载，够把医典与药田都交妥阿芸了。守着这块碑等了这许多年，总算等你读懂它。”`;
+          const age = getAgeYears(s.ageMonths);
+          const span = age >= 50 ? '数十载过去' : '十余载过去';
+          if (isSuAliveAndHealthyInAct4(s)) {
+            if (s.flags.su_zhiwei_saved_longlife) {
+              const suAppearance = age >= 50 ? '两鬓斑白的苏知微' : '鬓染微霜的苏知微';
+              return `石碑旁茅舍飘着陈皮药香。${suAppearance}正倚窗分拣晒草，徒弟阿芸端来一碗热药粥。${span}你容颜如旧，她眼角刻满细纹，神智却清朗如昔：“延寿露替我多挣了这些年，《无灵医典》与药田都已交妥阿芸——那医典记全了二十载凡人无灵脉络，灵根深扎世人骨血，日后若想替苍生无伤剥离牧种而不致爆体而亡，全赖这套凡胎经络之理；杏林门下义诊游医也正借无灵盲区，沿凡路暗传各处绝灵谷口图谱。守着这块碑等了数载，总算见你读懂它了。”`;
+            }
+            const suAppearance = age >= 55 ? '两鬓斑白的苏知微' : '鬓染微霜的苏知微';
+            return `石碑旁茅舍飘着陈皮药香。${suAppearance}正倚窗分拣晒草，徒弟阿芸端来一碗热药粥。${span}你容颜如旧，她眉眼染上岁月风霜，神色却清朗温和：“这些年身子尚算安稳，我带着阿芸入山采药定稿《无灵医典》，恰在祠后寻着此碑——医典记全了二十载凡人无灵脉络，他日若欲替苍生无伤剥离寄生灵根而不致爆体，这是唯一医理基石；杏林门下义诊游医也正沿凡路暗传各处盲区谷口图谱。守碑盼了数载，总算见你读懂它了。”`;
+          }
+          return `石碑旁的茅舍里，炭炉烧得极慢。小壶里的陈皮汤滚过一轮，又静下去。满头银丝的苏知微披着旧棉被倚在窗边，听见柴扉轻响，缓缓睁开了眼。${span}，你立在门光里，容颜一如往昔；她却已枯瘦得像一盏油尽的灯，看清是你，眼角仍极轻地弯了一下：“延寿露多赊来的三十载光阴，够把二十年凡人脉络汇成《无灵医典》交妥阿芸了——将来若要替苍生无伤剥离寄生灵根而不致爆体，全仗这套凡胎经络之理，杏林游医也已沿凡路把盲区谷口图谱传往四方。守着这块碑等了这许多年，总算等你读懂它。”`;
         },
       },
       {
         when: (s) =>
           s.companions.su_zhiwei.met &&
           s.companions.su_zhiwei.affection >= 10 &&
+          !isSuHostileOrCold(s) &&
           !s.flags.left_qingzhou_coldly &&
           !isSuAliveAndHealthyInAct4(s) &&
           !isSuFarewellInAct4(s) &&
           !s.flags.su_zhiwei_passed &&
           !s.companions.su_zhiwei.deceased,
         text: (s) => {
+          const age = getAgeYears(s.ageMonths);
           const timePhrase = s.flags.su_zhiwei_saved_longlife
             ? '师父高龄安然寿终前郑重交代，老桂树下立了她的素坟，'
+            : s.flags.su_zhiwei_fading
+            ? '师父早年抱病辞世前郑重留嘱，老桂树下立着她的素坟，'
             : '师父晚年安然寿终前交代，老桂树下立着她的素坟，';
           const intro =
-            getAgeYears(s.ageMonths) >= 110
-              ? '石碑旁守着一位粗布衣裳的医女，自称阿芸，是青州杏林一脉传人。'
-              : '石碑旁守着一位粗布衣裳的年轻医女，自称阿芸，是苏知微晚年收下的徒弟。';
+            age >= 100
+              ? '石碑旁守着一位粗布衣裳的医女，系阿芸一脉传人，世代替青州杏林守着旧诺。'
+              : age >= 65
+              ? '石碑旁守着两鬓染霜的阿芸，她是苏知微晚年收下的亲传徒弟。'
+              : '石碑旁守着一位粗布衣裳的年轻医女，自称阿芸，是苏知微收下的徒弟。';
+          const canonNote =
+            '匣旁还压着定本《无灵医典》——详载二十年凡人无灵脉络，足作日后无伤剥离寄生灵根而不致苍生爆体之医理基石，杏林义诊游医亦正沿凡路暗传各处盲区谷口图谱。';
           return s.relics.includes('mortal_hearth_talisman')
-            ? `${intro}她眼眶微红，双手捧出一卷犹带干桂花香的手抄遗册：“${timePhrase}她说，若有一位佩着无灵玉印、容貌不老的故人来寻此碑，便把古碑注解交予您。仙凡路远，她只嘱咐您一句：平安就好。”`
-            : `${intro}她眼眶微红，双手捧出一只素旧的紫檀木匣：“${timePhrase}她说，若有一位容貌不老、身带剑气的故人来寻此碑，便把这枚【无灵归尘印】交予您。仙凡路远，她只嘱咐您一句：平安就好。”`;
+            ? `${intro}她眼眶微红，双手捧出一卷犹带干桂花香的手抄遗册：“${timePhrase}她说，若有一位佩着无灵玉印、容貌不老的故人来寻此碑，便把古碑注解与医典定本交予您。仙凡路远，她只嘱咐您一句：平安就好。”${canonNote}`
+            : `${intro}她眼眶微红，双手捧出一只素旧的紫檀木匣：“${timePhrase}她说，若有一位容貌不老、身带剑气的故人来寻此碑，便把这枚【无灵归尘印】交予您。仙凡路远，她只嘱咐您一句：平安就好。”${canonNote}`;
         },
       },
       {
         when: (s) =>
           s.companions.su_zhiwei.met &&
           s.companions.su_zhiwei.affection >= 10 &&
+          !isSuHostileOrCold(s) &&
           !s.flags.left_qingzhou_coldly &&
           Boolean(s.flags.su_zhiwei_passed || s.companions.su_zhiwei.deceased),
         text: (s) => {
+          const age = getAgeYears(s.ageMonths);
           const keeper =
-            getAgeYears(s.ageMonths) >= 110
-              ? '青州杏林一脉守冢传人'
-              : '徒弟阿芸';
+            age >= 100
+              ? '阿芸一脉传人'
+              : age >= 65
+              ? '两鬓染霜的阿芸'
+              : '年轻医女阿芸';
+          const canonTail =
+            '石案一角整齐叠着续校完备的《无灵医典》，详记二十年凡人无灵经络，留作他日无伤剥离寄生灵根而不致生灵爆体的医理基石；杏林义诊游医亦正循遗志沿凡路传递盲区谷口图谱。';
           return s.relics.includes('mortal_hearth_talisman')
-            ? `祠堂侧畔一株老桂树下，立着${keeper}替苏知微修的素净青石衣冠冢。碑前摆着一碗微凉清茶，茶面浮着两星桂花。你俯身拂去素碑上落叶，想起青州杏林的旧药香，站了很久，方才转身回到无灵古碑前。`
-            : `祠堂侧畔一株老桂树下，立着${keeper}替苏知微修的素净青石衣冠冢，碑前摆着一碗浮着桂花的清茶。守在树影下的${keeper}辨出你容貌，眼眶微红，双手捧出一只素旧紫檀匣：“师门早有交代，您若寻来古碑，便将这枚【无灵归尘印】交托于您。”`;
+            ? `祠堂侧畔一株老桂树下，立着${keeper}世代照拂的苏知微素净青石衣冠冢。碑前摆着一碗微凉清茶，茶面浮着两星桂花。${canonTail}你俯身拂去素碑上落叶，想起青州杏林的旧药香，站了很久，方才转身回到无灵古碑前。`
+            : `祠堂侧畔一株老桂树下，立着苏知微的素净青石衣冠冢，碑前摆着一碗浮着桂花的清茶。守在树影下的${keeper}辨出你容貌，眼眶微红，双手捧出一只素旧紫檀匣：“师门早有交代，您若寻来古碑，便将这枚【无灵归尘印】连同《无灵医典》定本交托于您。”${canonTail}`;
         },
       },
       {
         when: (s) =>
-          !s.companions.su_zhiwei.met ||
-          (s.companions.su_zhiwei.affection < 10 && !isSuAliveAndHealthyInAct4(s) && !isSuFarewellInAct4(s)) ||
-          (Boolean(s.flags.left_qingzhou_coldly) && !isSuAliveAndHealthyInAct4(s) && !isSuFarewellInAct4(s)),
-        text: '白发族长拄着枣木杖立在一旁，淡笑说起祖训。凡生出灵根的后辈，皆须离村远去。留下的无灵人守着几亩薄田，倒稳稳躲过了历代仙门大劫。',
+          !isSuAliveAndHealthyInAct4(s) &&
+          !isSuFarewellInAct4(s) &&
+          (!s.companions.su_zhiwei.met ||
+            s.companions.su_zhiwei.affection < 10 ||
+            Boolean(s.flags.left_qingzhou_coldly) ||
+            isSuHostileOrCold(s)),
+        text: '白发族长拄着枣木杖立在一旁，淡笑说起祖训：凡生出灵根的后辈，皆须离村远去；留下的无灵人守着几亩薄田，倒稳稳躲过了历代仙门大劫。他指着碑角先民刻下的脉络警示补了一句——灵根牧种早已缠入世人经脉，他日若无精熟凡胎无灵脉理的医道调护而强行散灵，苍生恐难逃数年气血翻覆之苦。',
       },
     ],
     choices: [
@@ -1921,7 +2002,9 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
                 setStance: 'bonded',
                 setStage: 4,
                 chronicle:
-                  '槐阴古村重逢，两鬓斑白的她神智清朗，将药田托付徒弟阿芸后与你定下青州留茶之约。',
+                  getAgeYears(s.ageMonths) >= 50
+                    ? '槐阴古村重逢，两鬓斑白的她神智清朗，将《无灵医典》及药田托付徒弟阿芸后与你定下青州留茶之约。'
+                    : '槐阴古村重逢，鬓染微霜的她安康清朗，与徒弟阿芸共校《无灵医典》，同你定下青州留茶之约。',
               },
             },
             logSummary:
@@ -2124,7 +2207,9 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
               mortal_was_already_passed: Boolean(
                 s.flags.su_zhiwei_passed || s.companions.su_zhiwei.deceased
               ),
-              ...(s.companions.su_zhiwei.met ? { su_zhiwei_passed: true } : {}),
+              ...(s.companions.su_zhiwei.met && isSuZhiweiDeceased(s)
+                ? { su_zhiwei_passed: true }
+                : {}),
             },
             companionUpdates:
               suWarm && !s.flags.su_zhiwei_passed && !s.companions.su_zhiwei.deceased
@@ -2143,17 +2228,20 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
           (s) => {
             if (s.flags.mortal_su_warm_at_visit) {
               const memorial = s.flags.mortal_was_already_passed ? '素碑' : '素坟';
+              const age = getAgeYears(s.ageMonths);
               const bearer =
-                getAgeYears(s.ageMonths) >= 110 && s.flags.mortal_was_already_passed
-                  ? '杏林守冢传人'
+                age >= 100
+                  ? '阿芸一脉传人'
+                  : age >= 65
+                  ? '两鬓染霜的阿芸'
                   : '阿芸';
               return s.flags.mortal_had_seal
-                ? `你抚过腰间早已珍藏的【无灵归尘印】，又将古碑拓文收进书囊，向老桂树下的${memorial}深深一揖。凡尘虽短，这一份未曾被天幕驯服的清醒却比长生更沉。`
-                : `收起${bearer}捧来的那枚弥漫着淡雅桂花香的【无灵归尘印】，你向老桂树下的${memorial}深深一揖。凡尘虽短，这一份未曾被天幕驯服的清醒却比长生更沉。`;
+                ? `你抚过腰间早已珍藏的【无灵归尘印】，又将古碑拓文与《无灵医典》定本收进书囊，向老桂树下的${memorial}深深一揖。凡尘虽短，这一份未曾被天幕驯服的清醒却比长生更沉。`
+                : `收起${bearer}捧来的那枚弥漫着淡雅桂花香的【无灵归尘印】与《无灵医典》定本，你向老桂树下的${memorial}深深一揖。凡尘虽短，这一份未曾被天幕驯服的清醒却比长生更沉。`;
             }
             return s.flags.mortal_had_seal
-              ? '老族长瞥见你腰间【无灵归尘印】，神色骤变。同出一源。他起身入祠堂，双手捧出珍藏百年的前朝古笺注解并奉上热茶，待你收妥拓文细读一遍，胸中豁然洞开。'
-              : '老族长见你并无修仙大能的傲慢，郑重从祠堂暗龛请出先祖传下的【无灵归尘印】赠予你作护身信物。你收好玉印，胸中豁然开朗。';
+              ? '老族长瞥见你腰间【无灵归尘印】印心所嵌的上古「斥灵沉石」残玉，神色骤变——与村后古碑同出一源！他起身入祠堂，双手捧出珍藏百年的前朝古笺注解并奉上热茶，待你收妥拓文细读一遍，胸中豁然洞开。'
+              : '老族长见你并无修仙大能的傲慢，郑重从祠堂暗龛请出先祖传下的【无灵归尘印】赠予你作护身信物——印心嵌有一枚与古碑同源的上古「斥灵沉石」残玉，天生湮灭周遭灵机波动，故能瞒过天幕窥探。你收好玉印，胸中豁然开朗。';
           },
         ],
         outcomeContinueLabel: '辞别槐阴谷 · 回归九州大局',
@@ -2175,12 +2263,14 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
           completeThreads: ['thread_act4_mortal'],
           setFlags: {
             act4_mortal_truth_found: true,
-            ...(s.companions.su_zhiwei.met ? { su_zhiwei_passed: true } : {}),
+            ...(s.companions.su_zhiwei.met && isSuZhiweiDeceased(s)
+              ? { su_zhiwei_passed: true }
+              : {}),
           },
           logSummary: '自槐阴无灵古碑参悟【上古无灵纪】蔽天玄理，留作破局暗牌。',
         }),
         outcome: [
-          '你细读碑上古篆。一切骤然明了。天幕阵眼只锁高阶灵息，独对无灵凡人盲而不见。若在渡劫或直面天门时拟出一刻死寂，便可撕开九霄窥视的裂口。',
+          '你细读碑上太古秘篆，一切骤然明了：天外真身跨界代价百倍倒悬，唯赖下界九枢作界海唯一星标锁定高阶灵息，独对无灵凡人盲而不见。若在渡劫或直面天门时拟出一刻无灵死寂，便可撕开九霄窥视的裂口。',
           '记全玄理后你抹去沿途足迹悄然离谷，把这枚惊天暗牌深藏心底。',
         ],
         outcomeContinueLabel: '暗记蔽天玄理 · 悄然离村',
@@ -2335,8 +2425,8 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
           renown: 8,
         },
         outcome: [
-          '你反手祭出护体丹光硬震开第一波剑网，借江面水汽凝剑反扑。三名死士原是靠上界灰尘强催上来的伪金丹，交手不到五十合便露出根基虚浮的破绽，被你逐一斩落江心。',
-          '从死士怀里摸出二百四十块上品灵石与半纸未燃尽的暗杀密令，你踩着碎舟踏浪登岸，衣襟只沾了几点寒雾。',
+          '你反手祭出护体丹光硬震开第一波剑网，借江面水汽凝剑反扑。三名死士原是血契违期后被抽髓灌入长生烬灰尘强催上来的伪金丹，交手不到五十合便露出根基虚浮的破绽，被你逐一斩落江心。',
+          '从死士怀里摸出折合二百四十灵石的上品灵晶与半纸未燃尽的暗杀密令，你踩着碎舟踏浪登岸，衣襟只沾了几点寒雾。',
         ],
         outcomeContinueLabel: '踏浪登岸 · 返回别院',
         bridgeNote: '沧江渡口反杀三名天机死士，缴获二百余块灵石，更印证了伪丹之弊。',
@@ -2648,7 +2738,7 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
           };
         },
         outcome: [
-          '数百块上品灵石嵌入九宫铜柱，在绝巅撑起一座金碧辉煌的泄雷巨阵。狂暴紫雷接连劈下，十之七八竟被阵盘引入地下焦岩消解殆尽，只余最精纯的一缕雷元替你淬炼丹壳。',
+          '折合数百灵石的上品灵晶嵌入九宫铜柱，在绝巅撑起一座金碧辉煌的泄雷巨阵。狂暴紫雷接连劈下，十之七八竟被阵盘引入地下焦岩消解殆尽，只余最精纯的一缕雷元替你淬炼丹壳。',
           (s) =>
             `${formatNascentSpan(s)}闭关稳境过后，满山铜柱化作废铁，你却已步入寿元千载的【元婴期】。放眼九州，能靠财力与阵道如此从容渡劫者寥寥无几。`,
         ],
@@ -2781,12 +2871,20 @@ export const ACT4_SCENES: Record<string, SceneDefinition> = {
       {
         id: 'nascent_slow_grind',
         label: '暂不引雷，在绝巅洞窟枯坐六十载，拿金丹寿元硬磨底蕴',
-        subtext: '零灵石枯坐一甲子换取修为与心境各十点。若寿元耗尽仍未成婴，便会坐化老死。',
-        insightTags: ['耗寿六十载', '零花费换底蕴', '慎防寿尽大限'],
+        subtext: '零灵石枯坐一甲子换取修为与心境各十点（本卷限一回）。若寿元耗尽仍未成婴，便会坐化老死。',
+        requirement: {
+          maxUsesInAct: {
+            key: 'nascent_slow_grind',
+            max: 1,
+            reason: '大劫灵潮将尽，元婴闭死关至多一轮，再滞恐错过天门死期。',
+          },
+        },
+        insightTags: ['耗寿六十载', '本卷限一回', '零花费换底蕴', '慎防寿尽大限'],
         effect: {
           timeMonths: 720,
           might: 10,
           mind: 10,
+          trackActionKey: 'nascent_slow_grind',
           logSummary: '于绝巅石窟枯坐一甲子水磨金丹，拿六十年寿元换来几分冲婴底气。',
         },
         outcome: [

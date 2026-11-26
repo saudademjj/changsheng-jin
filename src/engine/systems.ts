@@ -91,10 +91,10 @@ export function isSuZhiweiDeceased(state: GameState): boolean {
   if (state.flags.su_zhiwei_saved_longlife) {
     return age > 95;
   }
-  if (state.act === 'act4' || state.act === 'act5' || state.act === 'act6') {
-    return true;
+  if (state.flags.su_zhiwei_fading) {
+    return age > 32;
   }
-  return age > 65;
+  return age > 68;
 }
 
 export function isCompanionDeceased(state: GameState, cid: CompanionId): boolean {
@@ -318,13 +318,8 @@ export function getOvermatchProfile(state: GameState): OvermatchProfile {
     }
   }
 
-  // 暗网死手与公开威慑（让高境界对手投鼠忌器、不敢直接杀人灭口的真正依仗）
-  if (
-    state.flags.xie_deadman_switch ||
-    (state.relics.includes('baibao_token') &&
-      !isCompanionHostile(state, 'xie_wujiu') &&
-      state.companions.xie_wujiu.affection >= 25)
-  ) {
+  // 暗网死手与公开威慑（让高境界对手投鼠忌器、不敢直接杀人灭口的真正依仗，须经显式行动布设生效）
+  if (state.flags.xie_deadman_switch && !isCompanionHostile(state, 'xie_wujiu')) {
     deadmanSwitches.push('百宝暗桩死手密信（人亡则账本传遍七十二坊）');
   }
   if (state.flags.act2_deadman_switch) {
@@ -451,10 +446,8 @@ export function evaluateCoercion(
   const powerOk = profile.crossRealmPower >= 52 && state.might >= 98;
   const switchOk =
     Boolean(state.flags.act3_chamber_deadman_switch) ||
-    profile.deadmanSwitches.length >= 2 ||
-    (state.relics.includes('baibao_token') &&
-      !isCompanionHostile(state, 'xie_wujiu') &&
-      state.companions.xie_wujiu.affection >= 45);
+    (Boolean(state.flags.xie_deadman_switch) && !isCompanionHostile(state, 'xie_wujiu')) ||
+    profile.deadmanSwitches.length >= 2;
   const canSucceed = powerOk || switchOk;
   const canSurviveFail = state.might >= 80 || profile.lifesavers.length >= 1;
   const parts: string[] = [];
@@ -509,13 +502,13 @@ const STAGE_META: Array<{
   {
     stage: 'testimony',
     title: '三 · 辩护与拆穿',
-    desc: '直面仙盟“贡约护界”的辩护，对照长明元年记忆与四代斩天遗录，拆穿牧灵骗局。',
+    desc: '直面仙盟“贡约护界”的诡辩，对照长明元年锁阵旧忆与四纪斩天遗录，拆穿牧灵骗局。',
     clueIds: ['clue_alliance_pact', 'clue_changming_night', 'clue_zhantian_remnant'],
   },
   {
     stage: 'synthesis',
     title: '四 · 收割铁证',
-    desc: '洞悉灵根牧种之源、三千年收割大期与天门九枢破绽，拼合破天诸般实证。',
+    desc: '洞悉三段史纲与灵根牧种之源、化神开炉大期及天地九枢唯一星标破绽，拼合破天诸般实证。',
     clueIds: ['clue_mortal_bloodline', 'clue_furnace_cycle', 'clue_gate_weakness'],
   },
 ];
@@ -599,7 +592,7 @@ export function getInvestigationProgress(
       chainTier: 3,
       tierLabel: '铁证闭合 · 洞穿牧灵大局',
       verdictText:
-        '物证、账目、古阵、口供与无灵盲区环环相扣：所谓飞升实乃三千年一熟的收割大炉，仙盟「护界进贡论」亦已被彻底戳穿。',
+        '物证、账目、古阵、口供与无灵盲区环环相扣：上界并无真长生，所谓飞升实乃三千年一熟的熬药仙炉，排落余灰即「长生烬」，仙盟「护界进贡论」亦已被彻底戳穿。',
     };
   }
   if (count >= 4 && coveredStages >= 2) {

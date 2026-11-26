@@ -62,7 +62,7 @@ export const REALMS: Record<RealmId, RealmDefinition> = {
     shortName: '筑基中期',
     lifespanYears: 250,
     order: 6,
-    desc: '灵识外放，可御剑穿云，已是一方宗门执事或坊市名宿。',
+    desc: '神识外放十里，可御剑穿云，已是一方宗门执事或坊市名宿。',
   },
   foundation_late: {
     id: 'foundation_late',
@@ -78,7 +78,7 @@ export const REALMS: Record<RealmId, RealmDefinition> = {
     shortName: '金丹',
     lifespanYears: 500,
     order: 8,
-    desc: '一粒金丹吞入腹，寿逾五百载，足可左右九州一域风云。',
+    desc: '一粒金丹吞入腹，神识覆及百里，寿逾五百载，足可左右九州一域风云。',
   },
   nascent_soul: {
     id: 'nascent_soul',
@@ -86,7 +86,7 @@ export const REALMS: Record<RealmId, RealmDefinition> = {
     shortName: '元婴',
     lifespanYears: 1000,
     order: 9,
-    desc: '碎丹成婴，可称一方老祖，寿元千载，直面九州灵脉大劫。',
+    desc: '碎丹成婴，神识笼罩五百里山河，可称一方老祖，寿元千载，直面九州灵脉大劫。',
   },
   deity_transform: {
     id: 'deity_transform',
@@ -94,7 +94,7 @@ export const REALMS: Record<RealmId, RealmDefinition> = {
     shortName: '化神',
     lifespanYears: 2000,
     order: 10,
-    desc: '神游太虚，距那三千年无人回音的天门仅咫尺之遥。',
+    desc: '神游太虚，神识横绝千里山河，距那三千年无人回音的天门仅咫尺之遥。',
   },
 };
 
@@ -241,25 +241,25 @@ export const TAGS: Record<string, TagDefinition> = {
     id: 'foundation_dao',
     name: '筑基道种',
     category: 'dao',
-    desc: '道基已成，寿逾二百载，正式踏入九州大势棋局。',
+    desc: '道基已成，神识外放十里，寿逾二百载，正式踏入九州大势棋局。',
   },
   golden_core_dao: {
     id: 'golden_core_dao',
     name: '金丹大道',
     category: 'dao',
-    desc: '灵液凝丹，五百载春秋在握，九州大宗亦须以礼相待。',
+    desc: '灵液凝丹，神识遍及百里，五百载春秋在握，九州大宗亦须以礼相待。',
   },
   nascent_soul_dao: {
     id: 'nascent_soul_dao',
     name: '元婴法身',
     category: 'dao',
-    desc: '破丹成婴，神识遍观百里山河，已立于下界众修绝巅。',
+    desc: '破丹成婴，神识遍观五百里山河，已立于下界众修绝巅。',
   },
   deity_dao: {
     id: 'deity_dao',
     name: '化神问道',
     category: 'dao',
-    desc: '神魂合道，已收到高天之上那扇金色天门落下的无声请柬。',
+    desc: '神魂合道，神识横绝千里，已收到高天之上那扇金色天门落下的无声请柬。',
   },
   sect_rebel: {
     id: 'sect_rebel',
@@ -352,8 +352,8 @@ export const RELICS: Record<string, RelicDefinition> = {
     id: 'longevity_dew',
     name: '九转延寿露',
     rarity: '秘藏',
-    desc: '凝百年地乳而成的玉瓶甘露，凡人服之可延寿二十载、祛百病。修士大限危急时亦可吊命续元。',
-    storyUseHint: '既可自留防大限，亦可在青州危局中替凡尘故人逆天续命。',
+    desc: '凝百年地乳而成的玉瓶甘露，凡人服之可延寿三十载、涤尽沉疴，然药力霸道，凡躯毕生只堪承一瓶，复饮则经脉寸断；修士大限临头时怀之亦可化气护脉、续命二十载（此生亦仅效一回）。',
+    storyUseHint: '既可自留于大限临头时续命二十载，亦可在青州危局中替凡尘故人逆天延寿三十载（凡躯不可复饮）。',
   },
   heaven_dust_shard: {
     id: 'heaven_dust_shard',
@@ -401,15 +401,15 @@ export const RELICS: Record<string, RelicDefinition> = {
     id: 'severing_sword_embryo',
     name: '斩天剑胚',
     rarity: '秘藏',
-    desc: '前朝遗落、曾封于云岭仙盟秘阁寒台的古剑胚，锋刃尚无铭文，却隐隐呼应着三千年前的碎天剑意。',
+    desc: '三千年前长明旧战遗落人间的太古剑胚，历经荒泽沉埋与世事流转而锋骨不朽，刃身尚无铭文，却隐隐共鸣着昔年碎天一战的不屈剑意。',
     storyUseHint: '古剑重宝，直面九霄强敌与叩天门时的核心锋芒。',
   },
   mortal_hearth_talisman: {
     id: 'mortal_hearth_talisman',
     name: '无灵归尘印',
     rarity: '秘藏',
-    desc: '苏知微耗尽半生心血结合无灵古碑留下的温润玉印，佩之可遮蔽天幕窥视、护佑凡俗神魂。',
-    storyUseHint: '开启红尘归真或假死隐世道途的钥匙。',
+    desc: '青州槐阴古脉与杏林医庐同源相传的温润玉印，印心嵌有一缕上古「斥灵沉石」残玉，天生抚平并湮灭周身灵机波动，佩之可遮蔽高天窥视、护佑神魂归真。',
+    storyUseHint: '开启红尘归真或斩蜕隐世道途的钥匙。',
   },
   nascent_lotus: {
     id: 'nascent_lotus',
@@ -422,7 +422,7 @@ export const RELICS: Record<string, RelicDefinition> = {
     id: 'ascension_ledger',
     name: '三千年收割总录',
     rarity: '秘藏',
-    desc: '自赤阳行营铁匣截获的天机商行血丝总册，铁证如山地记下三千年每一笔飞升祭品与灵脉去向。',
+    desc: '自赤阳行营铁匣截获的血丝母本总册。上界历代在人间扶植的敛财商号几经易名改换门庭，近三百年方整合为天机商行，此册由历代外柜移交续纂，铁证如山地记下三千年每一笔飞升祭品与灵脉去向。',
     storyUseHint: '九州群雄会上当众揭穿天门骗局的铁证。',
   },
   broken_sky_seal: {
@@ -487,7 +487,7 @@ export const TRUTH_CLUES: Record<string, TruthClueDefinition> = {
     stage: 'anomaly',
     sourceLabel: '青云宗禁地 · 沈清霜旧案',
     excerpt:
-      '长明三千年，青云宗七位大能沐金光飞升。史书尽颂荣光，可禁地飞升碑背却藏着一道被剑气削残的反文：“长明以来，七度光落，无一音回。灵脉岁减，非天灾也。慎叩其门。”三千年盛典背后，分明藏着一重未明隐情。',
+      '长明三千年，青云宗唯有七位化神大能真正沐金光飞升立碑。史书尽颂荣光，可禁地飞升碑背却藏着一道被剑气削残的反文：“长明以来，七度光落，无一音回。灵脉岁减，非天灾也。慎叩其门。”三千年盛典背后，分明藏着一重未明隐情。',
   },
   clue_vein_drain: {
     id: 'clue_vein_drain',
@@ -496,7 +496,7 @@ export const TRUTH_CLUES: Record<string, TruthClueDefinition> = {
     stage: 'verification',
     sourceLabel: '百宝斋密账 · 谢无咎旧案',
     excerpt:
-      '账对不上。对照三百年青州灵矿总账，枯竭之速远超修士消耗总和，短缺的巨额灵石被统一抹作无名“上供转运口”。下界并非自然枯竭，而是有人在持续抽血。',
+      '账对不上。对照三百年青州灵矿总账，前两千余载灵汐尚能温养回缓，近数百年枯竭之速却骤增十倍，远超修士消耗总和，短缺的巨额灵石被统一抹作无名“上供转运口”。下界并非自然枯竭，而是有人在加速抽血。',
   },
   clue_blood_pill_dust: {
     id: 'clue_blood_pill_dust',
@@ -505,7 +505,7 @@ export const TRUTH_CLUES: Record<string, TruthClueDefinition> = {
     stage: 'anomaly',
     sourceLabel: '青岚血丹案 · 暗市秘辛',
     excerpt:
-      '暗市血丹能绕过灵根强催修为，全凭丹核里一缕冰冷异样的“灰白微尘”。服丹破境后识海常伴异响，这微尘究竟是魔修禁料，还是天外之物？尚须物证比对。',
+      '暗市血丹能绕过灵根强催修为，全凭丹核里一缕冰冷异样的“灰白微尘”。服丹破境后识海常伴异响，这微尘究竟是魔修禁料，还是高天排落之物？尚须物证比对。',
   },
   clue_mortal_blindspot: {
     id: 'clue_mortal_blindspot',
@@ -523,7 +523,7 @@ export const TRUTH_CLUES: Record<string, TruthClueDefinition> = {
     stage: 'testimony',
     sourceLabel: '断玉记忆 · 苍溟旧忆',
     excerpt:
-      '三千年前天门洞开之夜，史书称作仙乐飞升盛典。苍溟残留的记忆却截然相反：漫天金光倾泻如火，九位拦门剑尊连同山河灵脉一息化灰。旧史所颂之“长明”，原是旧世焚毁之始。',
+      '三千年前天门洞开之夜，史书称作仙乐飞升盛典，苍溟残忆却揭开血色真相：上界仙庭同样身陷大道衰朽、并无真长生，长明真仙登仙后骇知唯有炼化下界合道元神方能续命，遂为苟活反手钉下锁天大阵、改立三千年封闭丹炉。是夜九位拦门剑尊浴血化灰，旧世护界主脉一息抽空，余脉历数百年方缓过残喘；而仙炉炼魂后排回下界的灰白余灰，正名曰“长生烬”。',
   },
   clue_ancient_vein_sigil: {
     id: 'clue_ancient_vein_sigil',
@@ -541,7 +541,7 @@ export const TRUTH_CLUES: Record<string, TruthClueDefinition> = {
     stage: 'testimony',
     sourceLabel: '九州仙盟秘阁 · 云岭密约',
     excerpt:
-      '三大宗门千年前与上界签下血契，每百年举荐三名天骄充作“飞升候补”。仙盟长老苦辩此乃“纳贡换上界稳住界壁”的保命之举，然对照地底灵灰与枯脉实据，所谓护界之诺分明是掩耳盗铃。',
+      '三大宗门千年前与上界签下血契，每百年以“保送云岭秘境闭死关冲击化神”为名征调三名天骄，实则暗投地下转运井折抵炉薪，从不立飞升碑。仙盟高层苦辩此乃“纳贡换上界稳住界壁”的保命之举，然对照转运灵灰与枯脉实据，所谓护界之诺分明是掩耳盗铃。',
   },
   clue_tianji_portal: {
     id: 'clue_tianji_portal',
@@ -550,16 +550,16 @@ export const TRUTH_CLUES: Record<string, TruthClueDefinition> = {
     stage: 'verification',
     sourceLabel: '青州百宝旧案 · 暗港残佩',
     excerpt:
-      '青州暗港转运井底堆积着厚厚一层惨白药渣。谢无咎兄长当年“飞升”时佩戴的青玉佩碎在灰坑中，上面固结的灵灰与血丹微尘、地脉玉屑完全同源——飞升者从未入过仙界，彻底戳穿了白日登仙的旧说。',
+      '青州暗港转运井底堆积着厚厚一层惨白药渣。千年来末法难出化神，天机商行便以地下转运井将低阶“飞升候补”暗投折抵炉薪，外以傀儡幻阵伪造城头白日沐光异象。谢无咎兄长碎在灰坑中的青玉佩上，固结着与血丹微尘、逆阵玉屑完全同源的死灰——所谓登仙，不过是入炉化烬。',
   },
   clue_zhantian_remnant: {
     id: 'clue_zhantian_remnant',
-    title: '斩天会四代遗录',
+    title: '斩天会四纪遗录',
     act: 'act4',
     stage: 'testimony',
     sourceLabel: '绝渊秘窟 · 斩天会旧址',
     excerpt:
-      '三千年四代反抗者用命测绘的九州灵脉枯竭星图证实：每次“百年大贡”之后，下界天幕并未稳固半分，灵脉反倒加速崩枯。四代血证彻底钉死了上界单向收割之实。',
+      '三千年间四度绝而复续的斩天大兴世系（四纪），以数辈师徒血命接力测绘出九州灵脉星图：前两千五百载九枢微抽、大地自生灵汐尚能温养催熟，故世人浑然不觉；末五百载至近百年九枢全开清棚急抽，每次“百年大贡”后灵脉反倒加速崩枯。四纪血证彻底钉死了上界单向收割之实。',
   },
   clue_mortal_bloodline: {
     id: 'clue_mortal_bloodline',
@@ -568,7 +568,7 @@ export const TRUTH_CLUES: Record<string, TruthClueDefinition> = {
     stage: 'synthesis',
     sourceLabel: '青州无灵古碑 · 杏林传灯',
     excerpt:
-      '长明之前三万年，世人本无所谓灵根。灵根实为天外牧者播撒在下界血脉里的“牧草之种”，供天幕循息收割。唯有彻彻底底的无灵凡人，仍是天地间原本的自由身。',
+      '槐阴无灵先民于长明初劫后以太古古篆续刻三段史纲：三万年前【太古无灵纪】，世人本无灵根，顺四时而终百岁；及至【上古牧灵初纪】，天外牧者播下灵根牧种粗放散养，并同步投下同源妖兽充作“牧犬”袭扰边关，驱迫凡俗王朝世代依附仙门、源源献出灵根孩童；至【长明元年】，叛仙落锁天大阵改散养为三千年封闭丹炉。唯有彻彻底底的无灵凡人不在天幕眼中，仍是天地原本的自由身。',
   },
   clue_furnace_cycle: {
     id: 'clue_furnace_cycle',
@@ -577,7 +577,7 @@ export const TRUTH_CLUES: Record<string, TruthClueDefinition> = {
     stage: 'synthesis',
     sourceLabel: '九州天象异变 · 裂穹大劫',
     excerpt:
-      '三千年一熟。长明三千载大期将满，下界残脉不足一成，苍穹裂开金灰巨口，天门即将彻底洞开，降下“接引金光”将九州元婴与化神一网收尽。',
+      '三千年一熟，以地脉跌破半成为开炉铁号。九霄之上并无真长生，衰朽仙庭全赖收割下界合道元神熬炼续命大药，炼余残渣排回下界化作“长生烬”。伪天门洞开时，接引金光严格只锁杀神魂合道的化神境；未敛息的半步化神若滞留天裂正下亦易遭余波卷入，而天门合拢抽尽残脉后九州将坠入数百载绝灵枯寂，留世元婴虽不即刻暴毙，却终生绝道、唯余坐待千载寿尽化作枯骨。',
   },
   clue_gate_weakness: {
     id: 'clue_gate_weakness',
@@ -586,6 +586,6 @@ export const TRUTH_CLUES: Record<string, TruthClueDefinition> = {
     stage: 'synthesis',
     sourceLabel: '九州群雄会 · 锁天残印',
     excerpt:
-      '接引金光落顶一瞬，九座主阵眼反向敞开。这是唯一破绽。借无灵盲区蔽开天机，以斩天剑意合锁天残印逆冲阵枢，伪门可断。',
+      '上界真身强破混沌罡风跨界降临之耗，百倍于下界一纪产出，故牧者唯能借九州九大主灵眼连通天门门框构成的“天地九枢”作唯一界海星标，隔界定位倒汲。接引金光落顶一瞬，九枢反向敞开——此乃唯一破绽。一旦自内斩碎九枢或断绝地脉牧种，下界即彻底脱离上界星图，牧者唯能断腕弃牧、再无力跨界反扑。',
   },
 };
